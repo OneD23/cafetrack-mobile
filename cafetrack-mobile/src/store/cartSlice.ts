@@ -1,5 +1,6 @@
 import { createSlice, PayloadAction, createAsyncThunk } from '@reduxjs/toolkit';
-import { deductIngredientsForSale } from './inventorySlice';
+import { consumeIngredients } from './inventorySlice';
+import { recordSale } from './accountingSlice';
 
 export interface CartItem {
   id: string;
@@ -49,25 +50,48 @@ const calculateTotals = (items: CartItem[]) => {
 export const processSale = createAsyncThunk(
   'cart/processSale',
   async (payload: { paymentMethod: string; customerName?: string }, { getState, dispatch }) => {
-    const state = getState() as { cart: CartState };
+    const state = getState() as {
+      cart: CartState;
+      recipes: { recipes: Array<{ productId: string; items: Array<{ ingredientId: string; quantity: number }> }> };
+      inventory: { ingredients: Array<{ id: string; stock: number; name: string; costPerUnit?: number }> };
+    };
     const { items } = state.cart;
+    const saleId = `SALE-${Date.now()}`;
+    let totalCost = 0;
     
     // Verificar stock de ingredientes para todos los items
     for (const item of items) {
-      if (item.hasRecipe && item.recipeId) {
-        try {
-          await dispatch(deductIngredientsForSale({
-            recipeId: item.recipeId,
-            quantity: item.quantity,
-            saleId: `SALE-${Date.now()}`,
-          })).unwrap();
-        } catch (error) {
-          throw new Error(`No hay suficiente stock para: ${item.name}`);
+      if (item.hasRecipe) {
+        const recipe = state.recipes.recipes.find((r) => r.productId === item.id);
+        if (!recipe) continue;
+
+        for (const recipeItem of recipe.items) {
+          const ingredient = state.inventory.ingredients.find((ing) => ing.id === recipeItem.ingredientId);
+          const needed = recipeItem.quantity * item.quantity;
+
+          if (!ingredient || ingredient.stock < needed) {
+            throw new Error(`No hay suficiente stock para: ${item.name}`);
+          }
+
+          totalCost += (ingredient.costPerUnit || 0) * needed;
         }
+
+        dispatch(consumeIngredients({
+          recipeItems: recipe.items,
+          quantity: item.quantity,
+          saleId,
+          productName: item.name,
+        }));
       }
     }
+
+    dispatch(recordSale({
+      saleId,
+      revenue: state.cart.totals.total,
+      cogs: totalCost,
+    }));
     
-    return { success: true, timestamp: new Date().toISOString() };
+    return { success: true, timestamp: new Date().toISOString(), saleId };
   }
 );
 

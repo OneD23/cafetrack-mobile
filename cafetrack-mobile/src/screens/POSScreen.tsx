@@ -9,36 +9,48 @@ import {
   SafeAreaView,
   StatusBar,
   Alert,
+  Platform,
 } from "react-native";
 import { useSelector, useDispatch } from "react-redux";
 import { Ionicons } from "@expo/vector-icons";
-import { addToCart, removeFromCart, updateQuantity, clearCart } from "../store/cartSlice";
-
-const defaultProducts = [
-  { id: "1", name: "Espresso", price: 2.50, cost: 0.80, category: "coffee", icon: "☕", stock: 100, minStock: 20 },
-  { id: "2", name: "Cappuccino", price: 3.50, cost: 1.20, category: "coffee", icon: "☕", stock: 100, minStock: 20 },
-  { id: "3", name: "Latte", price: 3.75, cost: 1.30, category: "coffee", icon: "☕", stock: 100, minStock: 20 },
-  { id: "4", name: "Croissant", price: 2.75, cost: 1.00, category: "pastry", icon: "🥐", stock: 50, minStock: 10 },
-  { id: "5", name: "Muffin", price: 3.25, cost: 1.20, category: "pastry", icon: "🧁", stock: 40, minStock: 10 },
-  { id: "6", name: "Té Helado", price: 2.50, cost: 0.70, category: "drink", icon: "🧊", stock: 80, minStock: 15 },
-  { id: "7", name: "Sandwich", price: 5.50, cost: 2.50, category: "food", icon: "🥪", stock: 30, minStock: 5 },
-];
+import { addToCart, processSale } from "../store/cartSlice";
 
 const POSScreen: React.FC = () => {
   const dispatch = useDispatch();
   const { items: cartItems, totals } = useSelector((state: any) => state.cart);
+  const { products, recipes } = useSelector((state: any) => state.recipes);
+  const { ingredients } = useSelector((state: any) => state.inventory);
   
   const [selectedCategory, setSelectedCategory] = useState("all");
   const [searchQuery, setSearchQuery] = useState("");
-  const [products] = useState(defaultProducts);
+
+  const availableProducts = useMemo(() => {
+    return products.map((product: any) => {
+      const recipe = recipes.find((r: any) => r.productId === product.id);
+      if (!recipe) {
+        return { ...product, stock: 9999 };
+      }
+
+      const maxFromIngredients = recipe.items.reduce((minQty: number, ri: any) => {
+        const ingredient = ingredients.find((ing: any) => ing.id === ri.ingredientId);
+        const possible = ingredient ? Math.floor(ingredient.stock / ri.quantity) : 0;
+        return Math.min(minQty, possible);
+      }, Number.MAX_SAFE_INTEGER);
+
+      return {
+        ...product,
+        stock: Number.isFinite(maxFromIngredients) ? maxFromIngredients : 0,
+      };
+    });
+  }, [products, recipes, ingredients]);
 
   const filteredProducts = useMemo(() => {
-    return products.filter((p: any) => {
+    return availableProducts.filter((p: any) => {
       const matchesCategory = selectedCategory === "all" || p.category === selectedCategory;
       const matchesSearch = p.name.toLowerCase().includes(searchQuery.toLowerCase());
-      return matchesCategory && matchesSearch && p.stock > 0;
+      return p.isActive && matchesCategory && matchesSearch && p.stock > 0;
     });
-  }, [products, selectedCategory, searchQuery]);
+  }, [availableProducts, selectedCategory, searchQuery]);
 
   const handleAddToCart = (product: any) => {
     if (product.stock <= 0) {
@@ -46,6 +58,65 @@ const POSScreen: React.FC = () => {
       return;
     }
     dispatch(addToCart(product));
+  };
+
+  const handleCompleteSale = async () => {
+    const saleItems = [...cartItems];
+    const saleTotals = { ...totals };
+
+    try {
+      const result = await dispatch(processSale({ paymentMethod: "cash" }) as any).unwrap();
+      Alert.alert("Venta completada", "Se descontaron ingredientes del inventario.");
+      printInvoice(result.saleId, saleItems, saleTotals);
+    } catch (error: any) {
+      Alert.alert("No se pudo completar", error?.message || "Error al procesar la venta");
+    }
+  };
+
+  const printInvoice = (saleId: string, items: any[], saleTotals: any) => {
+    if (Platform.OS === "web" && typeof window !== "undefined") {
+      const rows = items
+        .map(
+          (item: any) => `
+            <tr>
+              <td>${item.name}</td>
+              <td>${item.quantity}</td>
+              <td>$${item.price.toFixed(2)}</td>
+              <td>$${(item.price * item.quantity).toFixed(2)}</td>
+            </tr>
+          `
+        )
+        .join("");
+
+      const html = `
+        <html>
+          <head><title>Factura ${saleId}</title></head>
+          <body style="font-family: Arial; padding: 20px;">
+            <h2>CafeTrack - Factura</h2>
+            <p><strong>Folio:</strong> ${saleId}</p>
+            <p><strong>Fecha:</strong> ${new Date().toLocaleString()}</p>
+            <table border="1" cellspacing="0" cellpadding="8" width="100%">
+              <thead><tr><th>Producto</th><th>Cant.</th><th>Precio</th><th>Total</th></tr></thead>
+              <tbody>${rows}</tbody>
+            </table>
+            <h3>Subtotal: $${saleTotals.subtotal.toFixed(2)}</h3>
+            <h3>Impuesto: $${saleTotals.tax.toFixed(2)}</h3>
+            <h2>Total: $${saleTotals.total.toFixed(2)}</h2>
+          </body>
+        </html>
+      `;
+
+      const printWindow = window.open("", "_blank");
+      if (printWindow) {
+        printWindow.document.write(html);
+        printWindow.document.close();
+        printWindow.focus();
+        printWindow.print();
+      }
+      return;
+    }
+
+    Alert.alert("Factura", `Venta ${saleId} registrada. Impresión web no disponible en esta plataforma.`);
   };
 
   return (
@@ -102,7 +173,7 @@ const POSScreen: React.FC = () => {
             <Text style={styles.cartTotalLabel}>TOTAL</Text>
             <Text style={styles.cartTotalValue}>${totals.total.toFixed(2)}</Text>
           </View>
-          <TouchableOpacity style={styles.checkoutButton} onPress={() => dispatch(clearCart())}>
+          <TouchableOpacity style={styles.checkoutButton} onPress={handleCompleteSale}>
             <Text style={styles.checkoutText}>COMPLETAR VENTA</Text>
           </TouchableOpacity>
         </View>

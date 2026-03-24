@@ -23,6 +23,7 @@ import {
   adjustStock,
 } from '../store/inventorySlice';
 import { deleteProduct } from '../store/recipesSlice';
+import { addJournalEntry } from '../store/accountingSlice';
 
 export const InventoryScreen: React.FC = () => {
   const dispatch = useDispatch<AppDispatch>();
@@ -57,6 +58,12 @@ export const InventoryScreen: React.FC = () => {
       minStock: parseFloat(ingMinStock),
       costPerUnit: parseFloat(ingCost),
     }));
+    dispatch(addJournalEntry({
+      direction: 'in',
+      category: 'inventory',
+      description: `Alta ingrediente: ${ingName}`,
+      amount: parseFloat(ingStock) * parseFloat(ingCost),
+    }));
 
     // Reset
     setIngName('');
@@ -81,6 +88,12 @@ export const InventoryScreen: React.FC = () => {
                 ingredientId: ingredient.id,
                 quantity: qty,
                 reason: 'Reposición manual',
+              }));
+              dispatch(addJournalEntry({
+                direction: 'in',
+                category: 'inventory',
+                description: `Reposición: ${ingredient.name}`,
+                amount: qty * (ingredient.costPerUnit || 0),
               }));
             }
           },
@@ -157,10 +170,17 @@ export const InventoryScreen: React.FC = () => {
               Alert.prompt('Ajuste', 'Nuevo stock:', (value) => {
                 const newStock = parseFloat(value || '0');
                 if (!isNaN(newStock)) {
+                  const diff = newStock - item.stock;
                   dispatch(adjustStock({
                     ingredientId: item.id,
                     newStock,
                     reason: 'Ajuste manual',
+                  }));
+                  dispatch(addJournalEntry({
+                    direction: diff >= 0 ? 'in' : 'out',
+                    category: 'adjustment',
+                    description: `Ajuste inventario: ${item.name}`,
+                    amount: Math.abs(diff) * (item.costPerUnit || 0),
                   }));
                 }
               });

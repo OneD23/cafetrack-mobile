@@ -89,6 +89,42 @@ const inventorySlice = createSlice({
         state.ingredients.push(action.payload);
       }
     },
+    consumeIngredients: (state, action: PayloadAction<{
+      recipeItems: Array<{ ingredientId: string; quantity: number }>;
+      quantity: number;
+      saleId: string;
+      productName: string;
+    }>) => {
+      const { recipeItems, quantity, saleId, productName } = action.payload;
+
+      recipeItems.forEach((ri) => {
+        const index = state.ingredients.findIndex((i: any) => i.id === ri.ingredientId);
+        if (index !== -1) {
+          const ingredient: any = state.ingredients[index];
+          const deductQty = ri.quantity * quantity;
+          const previousStock = ingredient.stock;
+
+          ingredient.stock = Math.max(0, ingredient.stock - deductQty);
+
+          state.movements.push({
+            id: `mov-${Date.now()}-${ri.ingredientId}`,
+            type: 'sale',
+            ingredientId: ri.ingredientId,
+            quantity: -deductQty,
+            date: new Date().toISOString(),
+            reason: `Venta: ${productName}`,
+            saleId,
+            previousStock,
+            newStock: ingredient.stock,
+          });
+        }
+      });
+
+      state.lowStockAlerts = state.ingredients
+        .filter((ing: any) => ing.stock <= ing.minStock)
+        .map((ing: any) => ing.id);
+      state.lastSync = new Date().toISOString();
+    },
   },
   extraReducers: (builder) => {
     builder
@@ -152,5 +188,5 @@ const inventorySlice = createSlice({
   },
 });
 
-export const { setIngredients, updateIngredient } = inventorySlice.actions;
+export const { setIngredients, updateIngredient, consumeIngredients } = inventorySlice.actions;
 export default inventorySlice.reducer;
