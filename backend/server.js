@@ -24,11 +24,47 @@ connectDB();
 
 const app = express();
 const server = http.createServer(app);
+
+const defaultAllowedOrigins = [
+  'http://localhost:8081', // Expo Web (actual)
+  'http://localhost:19006', // Expo Web (legacy)
+  'http://localhost:3000',
+];
+
+const envAllowedOrigins = [
+  process.env.CLIENT_URL,
+  ...(process.env.CLIENT_URLS ? process.env.CLIENT_URLS.split(',') : []),
+]
+  .map((origin) => origin?.trim())
+  .filter(Boolean);
+
+const allowedOrigins = Array.from(new Set([...defaultAllowedOrigins, ...envAllowedOrigins]));
+
+const corsOptions = {
+  origin: (origin, callback) => {
+    // Permite requests server-to-server o tools sin Origin.
+    if (!origin) {
+      return callback(null, true);
+    }
+
+    // En desarrollo permitimos cualquier localhost para evitar bloqueos de Expo/Web.
+    if (process.env.NODE_ENV !== 'production' && /localhost|127\.0\.0\.1/.test(origin)) {
+      return callback(null, true);
+    }
+
+    if (allowedOrigins.includes(origin)) {
+      return callback(null, true);
+    }
+
+    return callback(new Error(`CORS bloqueado para origen: ${origin}`));
+  },
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
+};
+
 const io = socketIo(server, {
-  cors: {
-    origin: process.env.CLIENT_URL || '*',
-    methods: ['GET', 'POST']
-  }
+  cors: corsOptions
 });
 
 // Hacer io disponible en rutas
@@ -47,10 +83,8 @@ const limiter = rateLimit({
 app.use('/api/', limiter);
 
 // CORS
-app.use(cors({
-  origin: process.env.CLIENT_URL || '*',
-  credentials: true
-}));
+app.use(cors(corsOptions));
+app.options('*', cors(corsOptions));
 
 app.use(express.json({ limit: '10mb' }));
 
