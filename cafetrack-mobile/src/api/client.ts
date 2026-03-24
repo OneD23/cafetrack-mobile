@@ -72,6 +72,31 @@ class ApiClient {
     });
   }
 
+  async bootstrapAdmin(payload: {
+    username: string;
+    email: string;
+    password: string;
+    name: string;
+  }) {
+    return this.request('/auth/bootstrap', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
+  }
+
+  async registerUser(payload: {
+    username: string;
+    email: string;
+    password: string;
+    name: string;
+    role?: 'admin' | 'manager' | 'cashier';
+  }) {
+    return this.request('/auth/register', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
+  }
+
   // Ingredients
   async getIngredients() {
     return this.request('/ingredients');
