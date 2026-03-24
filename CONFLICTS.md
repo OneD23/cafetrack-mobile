@@ -109,3 +109,36 @@ Si estás en `github.com/.../pull/.../conflicts`:
 7. Al final, haz **Commit merge**.
 
 > Recomendado: para conflictos grandes, mejor resolver en local con rebase y luego `git push --force-with-lease`.
+
+---
+
+## ¿Puedo borrar los archivos con conflicto y dejar solo “los nuevos”?
+
+**No recomendado.** Si borras archivos en conflicto para “pasar” el merge, normalmente rompes rutas/imports y pierdes cambios válidos.
+
+Mejor usa una de estas opciones seguras:
+
+- Conservar versión de tu rama (current/ours):
+  ```bash
+  git checkout --ours <archivo>
+  git add <archivo>
+  ```
+- Conservar versión de `main` (incoming/theirs):
+  ```bash
+  git checkout --theirs <archivo>
+  git add <archivo>
+  ```
+- Mezclar ambas manualmente y luego:
+  ```bash
+  git add <archivo>
+  ```
+
+Cuando termines todos los archivos:
+
+```bash
+git rebase --continue
+# o, si estabas en merge normal:
+# git commit
+```
+
+Solo elimina un archivo si **realmente** fue reemplazado por otro y actualizaste todos los imports.
