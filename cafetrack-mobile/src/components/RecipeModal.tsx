@@ -31,6 +31,8 @@ export const RecipeModal: React.FC<RecipeModalProps> = ({
   const [name, setName] = useState(editingProduct?.name || '');
   const [price, setPrice] = useState(editingProduct?.price?.toString() || '');
   const [category, setCategory] = useState(editingProduct?.category || 'coffee');
+  const [productImage, setProductImage] = useState(editingProduct?.image || '');
+  const [recipeImage, setRecipeImage] = useState(editingProduct?.recipeId?.image || '');
   const [selectedIngredients, setSelectedIngredients] = useState<RecipeItem[]>([]);
   const [prepTime, setPrepTime] = useState('2');
 
@@ -76,18 +78,22 @@ export const RecipeModal: React.FC<RecipeModalProps> = ({
         price: parseFloat(price),
         category,
         icon: categories.find(c => c.id === category)?.icon || '☕',
+        image: productImage || undefined,
         isActive: true,
         hasRecipe: true,
       },
       recipe: {
         items: validItems,
         preparationTime: parseInt(prepTime) || 2,
+        image: recipeImage || undefined,
       },
     }));
 
     // Reset
     setName('');
     setPrice('');
+    setProductImage('');
+    setRecipeImage('');
     setSelectedIngredients([]);
     onClose();
   };
@@ -157,6 +163,26 @@ export const RecipeModal: React.FC<RecipeModalProps> = ({
                 </TouchableOpacity>
               ))}
             </View>
+
+            <Text style={styles.label}>Foto del producto (opcional)</Text>
+            <TextInput
+              style={styles.input}
+              value={productImage}
+              onChangeText={setProductImage}
+              placeholder="https://.../producto.jpg"
+              placeholderTextColor="#8b6f4e"
+              autoCapitalize="none"
+            />
+
+            <Text style={styles.label}>Foto de la receta (opcional)</Text>
+            <TextInput
+              style={styles.input}
+              value={recipeImage}
+              onChangeText={setRecipeImage}
+              placeholder="https://.../receta.jpg"
+              placeholderTextColor="#8b6f4e"
+              autoCapitalize="none"
+            />
 
             {/* Tiempo de preparación */}
             <Text style={styles.label}>Tiempo de preparación (min)</Text>
