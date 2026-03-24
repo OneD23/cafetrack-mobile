@@ -24,10 +24,37 @@ const POSScreen: React.FC = () => {
   
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
+  const [showBootstrapModal, setShowBootstrapModal] = useState(false);
+  const [bootstrapForm, setBootstrapForm] = useState({
+    username: '',
+    email: '',
+    name: '',
+    password: '',
+  });
+  const [creatingAdmin, setCreatingAdmin] = useState(false);
 
   const handleLogin = async () => {
     if (!username || !password) {
       Alert.alert('Error', 'Por favor ingresa usuario y contraseña');
+      return;
+    }
+
+    try {
+      setCreatingAdmin(true);
+      await api.bootstrapAdmin(bootstrapForm);
+      Alert.alert('Éxito', 'Admin inicial creado. Ya puedes iniciar sesión.');
+      setShowBootstrapModal(false);
+      setBootstrapForm({ username: '', email: '', name: '', password: '' });
+    } catch (error: any) {
+      Alert.alert('Error', error?.message || 'No fue posible crear el admin inicial');
+    } finally {
+      setCreatingAdmin(false);
+    }
+  };
+
+  const handleBootstrapAdmin = async () => {
+    if (!bootstrapForm.username || !bootstrapForm.email || !bootstrapForm.name || !bootstrapForm.password) {
+      Alert.alert('Datos incompletos', 'Completa todos los campos para crear el admin');
       return;
     }
 
