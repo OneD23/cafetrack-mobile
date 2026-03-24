@@ -109,6 +109,25 @@ const POSScreen: React.FC = () => {
     }
   };
 
+  const onBootstrapAdmin = async () => {
+    if (!bootstrapForm.username || !bootstrapForm.email || !bootstrapForm.name || !bootstrapForm.password) {
+      Alert.alert('Datos incompletos', 'Completa todos los campos para crear el admin');
+      return;
+    }
+
+    try {
+      setCreatingAdmin(true);
+      await api.bootstrapAdmin(bootstrapForm);
+      Alert.alert('Éxito', 'Admin inicial creado. Ya puedes iniciar sesión.');
+      setShowBootstrapModal(false);
+      setBootstrapForm({ username: '', email: '', name: '', password: '' });
+    } catch (error: any) {
+      Alert.alert('Error', error?.message || 'No fue posible crear el admin inicial');
+    } finally {
+      setCreatingAdmin(false);
+    }
+  };
+
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="light-content" backgroundColor="#1a0f0a" />
@@ -229,7 +248,7 @@ const POSScreen: React.FC = () => {
               <TouchableOpacity style={styles.cancelBtn} onPress={() => setShowBootstrapModal(false)}>
                 <Text style={styles.cancelBtnText}>Cerrar</Text>
               </TouchableOpacity>
-              <TouchableOpacity style={styles.confirmBtn} onPress={handleBootstrapAdmin} disabled={creatingAdmin}>
+              <TouchableOpacity style={styles.confirmBtn} onPress={onBootstrapAdmin} disabled={creatingAdmin}>
                 <Text style={styles.confirmBtnText}>{creatingAdmin ? 'Creando...' : 'Crear admin'}</Text>
               </TouchableOpacity>
             </View>
