@@ -1,7 +1,7 @@
 const express = require('express');
 const jwt = require('jsonwebtoken');
 const User = require('../models/User');
-const { protect } = require('../middleware/auth');
+const { protect, restrictTo } = require('../middleware/auth');
 
 const router = express.Router();
 
@@ -94,7 +94,7 @@ router.get('/me', protect, async (req, res) => {
 // @route   POST /api/auth/register
 // @desc    Registrar usuario (solo admin)
 // @access  Private/Admin
-router.post('/register', protect, async (req, res) => {
+router.post('/register', protect, restrictTo('admin'), async (req, res) => {
   try {
     const { username, email, password, name, role } = req.body;
 
@@ -112,6 +112,59 @@ router.post('/register', protect, async (req, res) => {
         id: user._id,
         username: user.username,
         name: user.name,
+        role: user.role
+      }
+    });
+  } catch (error) {
+    res.status(400).json({
+      success: false,
+      message: error.message
+    });
+  }
+});
+
+// @route   POST /api/auth/bootstrap
+// @desc    Crear primer usuario admin (solo si no existen usuarios)
+// @access  Public (una sola vez)
+router.post('/bootstrap', async (req, res) => {
+  try {
+    const usersCount = await User.countDocuments();
+
+    if (usersCount > 0) {
+      return res.status(403).json({
+        success: false,
+        message: 'Bootstrap deshabilitado: ya existen usuarios'
+      });
+    }
+
+    const { username, email, password, name } = req.body;
+
+    if (!username || !email || !password || !name) {
+      return res.status(400).json({
+        success: false,
+        message: 'username, email, password y name son obligatorios'
+      });
+    }
+
+    const user = await User.create({
+      username,
+      email,
+      password,
+      name,
+      role: 'admin'
+    });
+
+    const token = generateToken(user._id);
+
+    res.status(201).json({
+      success: true,
+      message: 'Usuario administrador inicial creado',
+      token,
+      user: {
+        id: user._id,
+        username: user.username,
+        name: user.name,
+        email: user.email,
         role: user.role
       }
     });
