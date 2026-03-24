@@ -8,6 +8,7 @@ import {
   TextInput,
   ScrollView,
   Alert,
+  Platform,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSelector, useDispatch } from 'react-redux';
@@ -31,6 +32,8 @@ export const RecipeModal: React.FC<RecipeModalProps> = ({
   const [name, setName] = useState(editingProduct?.name || '');
   const [price, setPrice] = useState(editingProduct?.price?.toString() || '');
   const [category, setCategory] = useState(editingProduct?.category || 'coffee');
+  const [productImage, setProductImage] = useState(editingProduct?.image || '');
+  const [recipeImage, setRecipeImage] = useState(editingProduct?.recipeId?.image || '');
   const [selectedIngredients, setSelectedIngredients] = useState<RecipeItem[]>([]);
   const [prepTime, setPrepTime] = useState('2');
 
@@ -58,6 +61,33 @@ export const RecipeModal: React.FC<RecipeModalProps> = ({
     ));
   };
 
+  const pickImageFromDevice = (target: 'product' | 'recipe') => {
+    if (Platform.OS !== 'web') {
+      Alert.alert('No disponible', 'En móvil nativo usa por ahora un link de imagen.');
+      return;
+    }
+
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = 'image/*';
+    input.onchange = () => {
+      const file = input.files?.[0];
+      if (!file) return;
+
+      const reader = new FileReader();
+      reader.onload = () => {
+        const result = typeof reader.result === 'string' ? reader.result : '';
+        if (target === 'product') {
+          setProductImage(result);
+        } else {
+          setRecipeImage(result);
+        }
+      };
+      reader.readAsDataURL(file);
+    };
+    input.click();
+  };
+
   const handleSave = () => {
     if (!name || !price || selectedIngredients.length === 0) {
       Alert.alert('Error', 'Completa todos los campos y selecciona al menos un ingrediente');
@@ -76,18 +106,22 @@ export const RecipeModal: React.FC<RecipeModalProps> = ({
         price: parseFloat(price),
         category,
         icon: categories.find(c => c.id === category)?.icon || '☕',
+        image: productImage || undefined,
         isActive: true,
         hasRecipe: true,
       },
       recipe: {
         items: validItems,
         preparationTime: parseInt(prepTime) || 2,
+        image: recipeImage || undefined,
       },
     }));
 
     // Reset
     setName('');
     setPrice('');
+    setProductImage('');
+    setRecipeImage('');
     setSelectedIngredients([]);
     onClose();
   };
@@ -157,6 +191,32 @@ export const RecipeModal: React.FC<RecipeModalProps> = ({
                 </TouchableOpacity>
               ))}
             </View>
+
+            <Text style={styles.label}>Foto del producto (opcional)</Text>
+            <TextInput
+              style={styles.input}
+              value={productImage}
+              onChangeText={setProductImage}
+              placeholder="https://.../producto.jpg"
+              placeholderTextColor="#8b6f4e"
+              autoCapitalize="none"
+            />
+            <TouchableOpacity style={styles.uploadBtn} onPress={() => pickImageFromDevice('product')}>
+              <Text style={styles.uploadBtnText}>📷 Subir desde dispositivo</Text>
+            </TouchableOpacity>
+
+            <Text style={styles.label}>Foto de la receta (opcional)</Text>
+            <TextInput
+              style={styles.input}
+              value={recipeImage}
+              onChangeText={setRecipeImage}
+              placeholder="https://.../receta.jpg"
+              placeholderTextColor="#8b6f4e"
+              autoCapitalize="none"
+            />
+            <TouchableOpacity style={styles.uploadBtn} onPress={() => pickImageFromDevice('recipe')}>
+              <Text style={styles.uploadBtnText}>📷 Subir desde dispositivo</Text>
+            </TouchableOpacity>
 
             {/* Tiempo de preparación */}
             <Text style={styles.label}>Tiempo de preparación (min)</Text>
@@ -263,6 +323,19 @@ const styles = StyleSheet.create({
     fontSize: 16,
     borderWidth: 1,
     borderColor: '#4a3428',
+  },
+  uploadBtn: {
+    backgroundColor: '#2c1810',
+    borderWidth: 1,
+    borderColor: '#4a3428',
+    borderRadius: 10,
+    paddingVertical: 10,
+    alignItems: 'center',
+    marginTop: 8,
+  },
+  uploadBtnText: {
+    color: '#d4a574',
+    fontWeight: '600',
   },
   categories: {
     flexDirection: 'row',
