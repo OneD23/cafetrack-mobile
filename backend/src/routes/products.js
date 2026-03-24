@@ -35,7 +35,7 @@ router.post('/', protect, async (req, res) => {
   session.startTransaction();
 
   try {
-    const { name, price, category, icon, recipe } = req.body;
+    const { name, price, category, icon, image, recipe } = req.body;
 
     // Crear producto
     const product = await Product.create([{
@@ -43,6 +43,7 @@ router.post('/', protect, async (req, res) => {
       price,
       category,
       icon: icon || '☕',
+      image,
       hasRecipe: true
     }], { session });
 
@@ -51,7 +52,8 @@ router.post('/', protect, async (req, res) => {
       productId: product[0]._id,
       items: recipe.items,
       preparationTime: recipe.preparationTime || 2,
-      instructions: recipe.instructions
+      instructions: recipe.instructions,
+      image: recipe.image
     }], { session });
 
     // Actualizar producto con referencia a receta
