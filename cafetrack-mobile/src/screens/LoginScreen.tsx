@@ -1,8 +1,9 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from "react";
 import {
   View,
   Text,
   StyleSheet,
+  FlatList,
   TextInput,
   TouchableOpacity,
   SafeAreaView,
@@ -15,9 +16,11 @@ import { useDispatch, useSelector } from 'react-redux';
 import { loginUser } from '../store/authSlice';
 import { api } from '../api/client';
 
-const LoginScreen: React.FC = () => {
+const POSScreen: React.FC = () => {
   const dispatch = useDispatch();
-  const { isLoading } = useSelector((state: any) => state.auth);
+  const { items: cartItems, totals, processingSale } = useSelector((state: any) => state.cart);
+  const { products, recipes } = useSelector((state: any) => state.recipes);
+  const { ingredients } = useSelector((state: any) => state.inventory);
   
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
@@ -37,9 +40,72 @@ const LoginScreen: React.FC = () => {
     }
 
     try {
-      await dispatch(loginUser({ username, password }) as any);
-    } catch (error) {
-      Alert.alert('Error', 'Credenciales inválidas');
+      setCreatingAdmin(true);
+      await api.bootstrapAdmin(bootstrapForm);
+      Alert.alert('Éxito', 'Admin inicial creado. Ya puedes iniciar sesión.');
+      setShowBootstrapModal(false);
+      setBootstrapForm({ username: '', email: '', name: '', password: '' });
+    } catch (error: any) {
+      Alert.alert('Error', error?.message || 'No fue posible crear el admin inicial');
+    } finally {
+      setCreatingAdmin(false);
+    }
+  };
+
+  const handleBootstrapAdmin = async () => {
+    if (!bootstrapForm.username || !bootstrapForm.email || !bootstrapForm.name || !bootstrapForm.password) {
+      Alert.alert('Datos incompletos', 'Completa todos los campos para crear el admin');
+      return;
+    }
+
+    try {
+      setCreatingAdmin(true);
+      await api.bootstrapAdmin(bootstrapForm);
+      Alert.alert('Éxito', 'Admin inicial creado. Ya puedes iniciar sesión.');
+      setShowBootstrapModal(false);
+      setBootstrapForm({ username: '', email: '', name: '', password: '' });
+    } catch (error: any) {
+      Alert.alert('Error', error?.message || 'No fue posible crear el admin inicial');
+    } finally {
+      setCreatingAdmin(false);
+    }
+  };
+
+  const handleBootstrapAdmin = async () => {
+    if (!bootstrapForm.username || !bootstrapForm.email || !bootstrapForm.name || !bootstrapForm.password) {
+      Alert.alert('Datos incompletos', 'Completa todos los campos para crear el admin');
+      return;
+    }
+
+    try {
+      setCreatingAdmin(true);
+      await api.bootstrapAdmin(bootstrapForm);
+      Alert.alert('Éxito', 'Admin inicial creado. Ya puedes iniciar sesión.');
+      setShowBootstrapModal(false);
+      setBootstrapForm({ username: '', email: '', name: '', password: '' });
+    } catch (error: any) {
+      Alert.alert('Error', error?.message || 'No fue posible crear el admin inicial');
+    } finally {
+      setCreatingAdmin(false);
+    }
+  };
+
+  const handleBootstrapAdmin = async () => {
+    if (!bootstrapForm.username || !bootstrapForm.email || !bootstrapForm.name || !bootstrapForm.password) {
+      Alert.alert('Datos incompletos', 'Completa todos los campos para crear el admin');
+      return;
+    }
+
+    try {
+      setCreatingAdmin(true);
+      await api.bootstrapAdmin(bootstrapForm);
+      Alert.alert('Éxito', 'Admin inicial creado. Ya puedes iniciar sesión.');
+      setShowBootstrapModal(false);
+      setBootstrapForm({ username: '', email: '', name: '', password: '' });
+    } catch (error: any) {
+      Alert.alert('Error', error?.message || 'No fue posible crear el admin inicial');
+    } finally {
+      setCreatingAdmin(false);
     }
   };
 
@@ -64,47 +130,71 @@ const LoginScreen: React.FC = () => {
 
   return (
     <SafeAreaView style={styles.container}>
-      <StatusBar barStyle="light-content" />
+      <StatusBar barStyle="light-content" backgroundColor="#1a0f0a" />
       
-      <View style={styles.content}>
-        <View style={styles.logoContainer}>
-          <Text style={styles.logoEmoji}>☕</Text>
-          <Text style={styles.logoTitle}>CafeTrack</Text>
-          <Text style={styles.logoSubtitle}>MOBILE POS</Text>
+      <View style={styles.header}>
+        <Text style={styles.title}>☕ CafeTrack POS</Text>
+        <View style={styles.stats}>
+          <Text style={styles.stat}>Items: {cartItems.length}</Text>
+          <Text style={styles.statTotal}>${totals.total.toFixed(2)}</Text>
         </View>
+      </View>
 
-        <View style={styles.form}>
-          <TextInput
-            style={styles.input}
-            placeholder="Usuario"
-            placeholderTextColor="#8b6f4e"
-            value={username}
-            onChangeText={setUsername}
-            autoCapitalize="none"
-            editable={!isLoading}
-          />
-          
-          <TextInput
-            style={styles.input}
-            placeholder="Contraseña"
-            placeholderTextColor="#8b6f4e"
-            value={password}
-            onChangeText={setPassword}
-            secureTextEntry
-            editable={!isLoading}
-          />
+      <View style={styles.searchContainer}>
+        <Ionicons name="search" size={20} color="#8b6f4e" />
+        <TextInput
+          style={styles.searchInput}
+          placeholder="Buscar producto..."
+          placeholderTextColor="#8b6f4e"
+          value={searchQuery}
+          onChangeText={setSearchQuery}
+        />
+      </View>
 
+      <View style={styles.categoriesRow}>
+        {categories.map((category) => {
+          const isActive = selectedCategory === category;
+          return (
+            <TouchableOpacity
+              key={category}
+              style={[styles.categoryChip, isActive && styles.categoryChipActive]}
+              onPress={() => setSelectedCategory(category)}
+            >
+              <Text style={[styles.categoryChipText, isActive && styles.categoryChipTextActive]}>
+                {category === "all" ? "Todo" : category}
+              </Text>
+            </TouchableOpacity>
+          );
+        })}
+      </View>
+
+      <FlatList
+        data={filteredProducts}
+        numColumns={2}
+        keyExtractor={(item) => item.id}
+        contentContainerStyle={styles.productsGrid}
+        ListEmptyComponent={
+          <View style={styles.emptyState}>
+            <Text style={styles.emptyStateTitle}>No hay productos para mostrar</Text>
+            <Text style={styles.emptyStateSubtitle}>
+              Verifica búsqueda, categorías o inventario disponible.
+            </Text>
+          </View>
+        }
+        renderItem={({ item }) => (
           <TouchableOpacity 
-            style={[styles.button, isLoading && styles.buttonDisabled]} 
-            onPress={handleLogin}
-            disabled={isLoading}
+            style={styles.productCard}
+            onPress={() => handleAddToCart(item)}
           >
-            {isLoading ? (
-              <ActivityIndicator color="#1a0f0a" />
-            ) : (
-              <Text style={styles.buttonText}>INICIAR SESIÓN</Text>
-            )}
+            <Text style={styles.productIcon}>{item.icon}</Text>
+            <Text style={styles.productName}>{item.name}</Text>
+            <Text style={styles.productPrice}>${item.price.toFixed(2)}</Text>
+            <Text style={styles.productStock}>
+              Stock: {hasInventoryData ? item.stock : "—"}
+            </Text>
           </TouchableOpacity>
+        )}
+      />
 
           <Text style={styles.hint}>
             Usa tus credenciales del backend
@@ -174,53 +264,227 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: "#1a0f0a",
   },
-  content: {
-    flex: 1,
-    justifyContent: "center",
-    padding: 30,
-  },
-  logoContainer: {
+  header: {
+    padding: 16,
+    flexDirection: "row",
+    justifyContent: "space-between",
     alignItems: "center",
-    marginBottom: 50,
   },
-  logoEmoji: {
-    fontSize: 80,
-    marginBottom: 10,
-  },
-  logoTitle: {
-    fontSize: 36,
+  title: {
+    color: "#f5f1e8",
+    fontSize: 20,
     fontWeight: "bold",
-    color: "#f5f1e8",
   },
-  logoSubtitle: {
-    fontSize: 18,
+  stats: {
+    alignItems: "flex-end",
+  },
+  stat: {
+    color: "#8b6f4e",
+    fontSize: 12,
+  },
+  statTotal: {
     color: "#d4a574",
-    letterSpacing: 3,
+    fontSize: 18,
+    fontWeight: "bold",
   },
-  form: {
-    width: "100%",
-  },
-  input: {
+  searchContainer: {
+    flexDirection: "row",
+    alignItems: "center",
     backgroundColor: "#2c1810",
+    margin: 16,
+    marginTop: 0,
     borderRadius: 12,
-    padding: 15,
-    marginBottom: 15,
-    color: "#f5f1e8",
-    fontSize: 16,
+    paddingHorizontal: 16,
     borderWidth: 1,
     borderColor: "#4a3428",
   },
-  button: {
+  searchInput: {
+    flex: 1,
+    padding: 12,
+    color: "#f5f1e8",
+    fontSize: 16,
+  },
+  categoriesRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8,
+    paddingHorizontal: 16,
+    marginBottom: 8,
+  },
+  categoryChip: {
+    backgroundColor: "#2c1810",
+    borderColor: "#4a3428",
+    borderWidth: 1,
+    borderRadius: 16,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+  },
+  categoryChipActive: {
     backgroundColor: "#d4a574",
-    borderRadius: 12,
+    borderColor: "#d4a574",
+  },
+  categoryChipText: {
+    color: "#d4a574",
+    fontSize: 12,
+    textTransform: "capitalize",
+    fontWeight: "600",
+  },
+  categoryChipTextActive: {
+    color: "#1a0f0a",
+  },
+  productsGrid: {
+    padding: 8,
+    paddingBottom: 300,
+  },
+  emptyState: {
+    marginTop: 28,
+    alignItems: "center",
+    paddingHorizontal: 16,
+  },
+  emptyStateTitle: {
+    color: "#f5f1e8",
+    fontSize: 16,
+    fontWeight: "700",
+    textAlign: "center",
+  },
+  emptyStateSubtitle: {
+    marginTop: 6,
+    color: "#8b6f4e",
+    fontSize: 13,
+    textAlign: "center",
+  },
+  productCard: {
+    flex: 1,
+    backgroundColor: "#2c1810",
+    margin: 6,
+    borderRadius: 16,
+    padding: 15,
+    alignItems: "center",
+    borderWidth: 1,
+    borderColor: "#4a3428",
+    maxWidth: "47%",
+  },
+  productIcon: {
+    fontSize: 40,
+    marginBottom: 8,
+  },
+  productName: {
+    color: "#f5f1e8",
+    fontSize: 14,
+    fontWeight: "600",
+    textAlign: "center",
+  },
+  productPrice: {
+    color: "#d4a574",
+    fontSize: 18,
+    fontWeight: "bold",
+    marginTop: 5,
+  },
+  productStock: {
+    color: "#8b6f4e",
+    fontSize: 11,
+    marginTop: 4,
+  },
+  cartSheet: {
+    position: "absolute",
+    bottom: 0,
+    left: 0,
+    right: 0,
+    backgroundColor: "#1a0f0a",
+    borderTopLeftRadius: 30,
+    borderTopRightRadius: 30,
+    borderTopWidth: 3,
+    borderTopColor: "#d4a574",
+    padding: 20,
+    paddingBottom: 30,
+    maxHeight: 400,
+  },
+  cartTitle: {
+    color: "#f5f1e8",
+    fontSize: 18,
+    fontWeight: "bold",
+    marginBottom: 15,
+  },
+  cartTitleRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+  },
+  clearCart: {
+    color: "#d96d61",
+    fontWeight: "700",
+  },
+  cartItem: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    marginBottom: 8,
+    alignItems: "center",
+  },
+  cartItemLeft: {
+    flex: 1,
+  },
+  cartItemRight: {
+    alignItems: "flex-end",
+    gap: 8,
+  },
+  cartItemName: {
+    color: "#f5f1e8",
+  },
+  qtyRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    marginTop: 5,
+  },
+  qtyBtn: {
+    backgroundColor: "#2c1810",
+    borderColor: "#4a3428",
+    borderWidth: 1,
+    borderRadius: 8,
+    width: 24,
+    height: 24,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  qtyBtnText: {
+    color: "#d4a574",
+    fontWeight: "700",
+  },
+  qtyValue: {
+    color: "#f5f1e8",
+    fontWeight: "700",
+    minWidth: 16,
+    textAlign: "center",
+  },
+  cartItemPrice: {
+    color: "#d4a574",
+  },
+  cartTotal: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    marginTop: 15,
+    paddingTop: 15,
+    borderTopWidth: 1,
+    borderTopColor: "#4a3428",
+  },
+  cartTotalLabel: {
+    color: "#f5f1e8",
+    fontSize: 16,
+    fontWeight: "bold",
+  },
+  cartTotalValue: {
+    color: "#27ae60",
+    fontSize: 24,
+    fontWeight: "bold",
+  },
+  checkoutButton: {
+    backgroundColor: "#d4a574",
+    borderRadius: 16,
     padding: 18,
     alignItems: "center",
-    marginTop: 10,
+    marginTop: 15,
   },
-  buttonDisabled: {
-    opacity: 0.7,
-  },
-  buttonText: {
+  checkoutText: {
     color: "#1a0f0a",
     fontSize: 18,
     fontWeight: "bold",
