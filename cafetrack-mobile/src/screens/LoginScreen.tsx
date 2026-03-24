@@ -9,12 +9,12 @@ import {
   SafeAreaView,
   StatusBar,
   Alert,
-  Platform,
-} from "react-native";
-import { useSelector, useDispatch } from "react-redux";
-import { Ionicons } from "@expo/vector-icons";
-import { addToCart, clearCart, processSale, removeFromCart, setDiscount, updateQuantity } from "../store/cartSlice";
-import { PaymentModal } from "../components/PaymentModal";
+  ActivityIndicator,
+  Modal,
+} from 'react-native';
+import { useDispatch, useSelector } from 'react-redux';
+import { loginUser } from '../store/authSlice';
+import { api } from '../api/client';
 
 const POSScreen: React.FC = () => {
   const dispatch = useDispatch();
@@ -22,7 +22,6 @@ const POSScreen: React.FC = () => {
   const { products, recipes } = useSelector((state: any) => state.recipes);
   const { ingredients } = useSelector((state: any) => state.inventory);
   
-<<<<<<< HEAD
   const [selectedCategory, setSelectedCategory] = useState("all");
   const [searchQuery, setSearchQuery] = useState("");
   const [showPaymentModal, setShowPaymentModal] = useState(false);
@@ -33,18 +32,7 @@ const POSScreen: React.FC = () => {
     );
     return ["all", ...allCategories];
   }, [products]);
-=======
-  const [username, setUsername] = useState('');
-  const [password, setPassword] = useState('');
-  const [showBootstrapModal, setShowBootstrapModal] = useState(false);
-  const [bootstrapForm, setBootstrapForm] = useState({
-    username: '',
-    email: '',
-    name: '',
-    password: '',
-  });
-  const [creatingAdmin, setCreatingAdmin] = useState(false);
->>>>>>> 80bc182f82974c343c153fccbe4709056e629c19
+>>>>>>> main
 
   const availableProducts = useMemo(() => {
     return products.map((product: any) => {
@@ -87,7 +75,6 @@ const POSScreen: React.FC = () => {
     dispatch(addToCart(product));
   };
 
-<<<<<<< HEAD
   const handleCompleteSale = async () => {
     if (!cartItems.length) {
       Alert.alert("Carrito vacío", "Agrega al menos un producto para continuar.");
@@ -118,7 +105,11 @@ const POSScreen: React.FC = () => {
       Alert.alert("Venta completada", "Se descontaron ingredientes del inventario.");
       setShowPaymentModal(false);
       printInvoice(result.saleId, saleItems, saleTotals);
-=======
+    } catch (error: any) {
+      Alert.alert("No se pudo completar", error?.message || "Error al procesar la venta");
+    }
+  };
+
   const handleBootstrapAdmin = async () => {
     if (!bootstrapForm.username || !bootstrapForm.email || !bootstrapForm.name || !bootstrapForm.password) {
       Alert.alert('Datos incompletos', 'Completa todos los campos para crear el admin');
@@ -131,56 +122,11 @@ const POSScreen: React.FC = () => {
       Alert.alert('Éxito', 'Admin inicial creado. Ya puedes iniciar sesión.');
       setShowBootstrapModal(false);
       setBootstrapForm({ username: '', email: '', name: '', password: '' });
->>>>>>> 80bc182f82974c343c153fccbe4709056e629c19
     } catch (error: any) {
-      Alert.alert("No se pudo completar", error?.message || "Error al procesar la venta");
+      Alert.alert('Error', error?.message || 'No fue posible crear el admin inicial');
+    } finally {
+      setCreatingAdmin(false);
     }
-  };
-
-  const printInvoice = (saleId: string, items: any[], saleTotals: any) => {
-    if (Platform.OS === "web" && typeof window !== "undefined") {
-      const rows = items
-        .map(
-          (item: any) => `
-            <tr>
-              <td>${item.name}</td>
-              <td>${item.quantity}</td>
-              <td>$${item.price.toFixed(2)}</td>
-              <td>$${(item.price * item.quantity).toFixed(2)}</td>
-            </tr>
-          `
-        )
-        .join("");
-
-      const html = `
-        <html>
-          <head><title>Factura ${saleId}</title></head>
-          <body style="font-family: Arial; padding: 20px;">
-            <h2>CafeTrack - Factura</h2>
-            <p><strong>Folio:</strong> ${saleId}</p>
-            <p><strong>Fecha:</strong> ${new Date().toLocaleString()}</p>
-            <table border="1" cellspacing="0" cellpadding="8" width="100%">
-              <thead><tr><th>Producto</th><th>Cant.</th><th>Precio</th><th>Total</th></tr></thead>
-              <tbody>${rows}</tbody>
-            </table>
-            <h3>Subtotal: $${saleTotals.subtotal.toFixed(2)}</h3>
-            <h3>Impuesto: $${saleTotals.tax.toFixed(2)}</h3>
-            <h2>Total: $${saleTotals.total.toFixed(2)}</h2>
-          </body>
-        </html>
-      `;
-
-      const printWindow = window.open("", "_blank");
-      if (printWindow) {
-        printWindow.document.write(html);
-        printWindow.document.close();
-        printWindow.focus();
-        printWindow.print();
-      }
-      return;
-    }
-
-    Alert.alert("Factura", `Venta ${saleId} registrada. Impresión web no disponible en esta plataforma.`);
   };
 
   return (
@@ -234,8 +180,40 @@ const POSScreen: React.FC = () => {
             <Text style={styles.emptyStateSubtitle}>
               Verifica búsqueda, categorías o inventario disponible.
             </Text>
-<<<<<<< HEAD
-=======
+          </View>
+        }
+        renderItem={({ item }) => (
+          <TouchableOpacity 
+            style={styles.productCard}
+            onPress={() => handleAddToCart(item)}
+          >
+            <Text style={styles.productIcon}>{item.icon}</Text>
+            <Text style={styles.productName}>{item.name}</Text>
+            <Text style={styles.productPrice}>${item.price.toFixed(2)}</Text>
+            <Text style={styles.productStock}>
+              Stock: {hasInventoryData ? item.stock : "—"}
+            </Text>
+          </TouchableOpacity>
+        )}
+      />
+
+          <Text style={styles.hint}>
+            Usa tus credenciales del backend
+          </Text>
+
+          <TouchableOpacity onPress={() => setShowBootstrapModal(true)}>
+            <Text style={styles.bootstrapLink}>Configurar primer usuario</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+
+      <Modal visible={showBootstrapModal} transparent animationType="slide">
+        <View style={styles.modalBackdrop}>
+          <View style={styles.modalCard}>
+            <Text style={styles.modalTitle}>Crear admin inicial</Text>
+            <Text style={styles.modalDescription}>
+              Este formulario solo funcionará si no existen usuarios en el sistema.
+            </Text>
             <TextInput
               style={styles.modalInput}
               placeholder="Nombre"
@@ -275,76 +253,9 @@ const POSScreen: React.FC = () => {
                 <Text style={styles.confirmBtnText}>{creatingAdmin ? 'Creando...' : 'Crear admin'}</Text>
               </TouchableOpacity>
             </View>
->>>>>>> 80bc182f82974c343c153fccbe4709056e629c19
           </View>
-        }
-        renderItem={({ item }) => (
-          <TouchableOpacity 
-            style={styles.productCard}
-            onPress={() => handleAddToCart(item)}
-          >
-            <Text style={styles.productIcon}>{item.icon}</Text>
-            <Text style={styles.productName}>{item.name}</Text>
-            <Text style={styles.productPrice}>${item.price.toFixed(2)}</Text>
-            <Text style={styles.productStock}>
-              Stock: {hasInventoryData ? item.stock : "—"}
-            </Text>
-          </TouchableOpacity>
-        )}
-      />
-
-      {cartItems.length > 0 && (
-        <View style={styles.cartSheet}>
-          <View style={styles.cartTitleRow}>
-            <Text style={styles.cartTitle}>🛒 Carrito ({cartItems.length})</Text>
-            <TouchableOpacity onPress={() => dispatch(clearCart())}>
-              <Text style={styles.clearCart}>Vaciar</Text>
-            </TouchableOpacity>
-          </View>
-          {cartItems.map((item: any) => (
-            <View key={item.id} style={styles.cartItem}>
-              <View style={styles.cartItemLeft}>
-                <Text style={styles.cartItemName}>{item.name}</Text>
-                <View style={styles.qtyRow}>
-                  <TouchableOpacity
-                    style={styles.qtyBtn}
-                    onPress={() => dispatch(updateQuantity({ id: item.id, qty: item.quantity - 1 }))}
-                  >
-                    <Text style={styles.qtyBtnText}>-</Text>
-                  </TouchableOpacity>
-                  <Text style={styles.qtyValue}>{item.quantity}</Text>
-                  <TouchableOpacity
-                    style={styles.qtyBtn}
-                    onPress={() => dispatch(updateQuantity({ id: item.id, qty: item.quantity + 1 }))}
-                  >
-                    <Text style={styles.qtyBtnText}>+</Text>
-                  </TouchableOpacity>
-                </View>
-              </View>
-              <View style={styles.cartItemRight}>
-                <Text style={styles.cartItemPrice}>${(item.price * item.quantity).toFixed(2)}</Text>
-                <TouchableOpacity onPress={() => dispatch(removeFromCart(item.id))}>
-                  <Ionicons name="trash-outline" size={18} color="#d96d61" />
-                </TouchableOpacity>
-              </View>
-            </View>
-          ))}
-          <View style={styles.cartTotal}>
-            <Text style={styles.cartTotalLabel}>TOTAL</Text>
-            <Text style={styles.cartTotalValue}>${totals.total.toFixed(2)}</Text>
-          </View>
-          <TouchableOpacity style={styles.checkoutButton} onPress={handleCompleteSale}>
-            <Text style={styles.checkoutText}>COMPLETAR VENTA</Text>
-          </TouchableOpacity>
         </View>
-      )}
-      <PaymentModal
-        visible={showPaymentModal}
-        onClose={() => setShowPaymentModal(false)}
-        onConfirm={handleConfirmPayment}
-        total={totals.total}
-        loading={processingSale}
-      />
+      </Modal>
     </SafeAreaView>
   );
 };
@@ -579,6 +490,80 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: "bold",
   },
+  hint: {
+    color: "#8b6f4e",
+    textAlign: "center",
+    marginTop: 20,
+    fontSize: 12,
+  },
+  bootstrapLink: {
+    color: "#d4a574",
+    textAlign: "center",
+    marginTop: 12,
+    textDecorationLine: "underline",
+    fontSize: 13,
+  },
+  modalBackdrop: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.6)",
+    justifyContent: "center",
+    padding: 20,
+  },
+  modalCard: {
+    backgroundColor: "#1a0f0a",
+    borderRadius: 16,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: "#4a3428",
+  },
+  modalTitle: {
+    color: "#f5f1e8",
+    fontSize: 20,
+    fontWeight: "700",
+    marginBottom: 12,
+  },
+  modalDescription: {
+    color: "#d8c6b2",
+    marginBottom: 12,
+    fontSize: 13,
+  },
+  modalInput: {
+    backgroundColor: "#2c1810",
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    color: "#f5f1e8",
+    borderWidth: 1,
+    borderColor: "#4a3428",
+    marginBottom: 10,
+  },
+  modalActions: {
+    flexDirection: "row",
+    gap: 10,
+    marginTop: 8,
+  },
+  cancelBtn: {
+    flex: 1,
+    backgroundColor: "#3a2a20",
+    borderRadius: 10,
+    padding: 12,
+    alignItems: "center",
+  },
+  cancelBtnText: {
+    color: "#f5f1e8",
+    fontWeight: "700",
+  },
+  confirmBtn: {
+    flex: 1,
+    backgroundColor: "#d4a574",
+    borderRadius: 10,
+    padding: 12,
+    alignItems: "center",
+  },
+  confirmBtnText: {
+    color: "#1a0f0a",
+    fontWeight: "700",
+  },
 });
 
-export default POSScreen;
+export default LoginScreen;
