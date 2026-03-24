@@ -1,50 +1,95 @@
 # Evitar conflictos en PR (CafeTrack)
 
-## Flujo recomendado (antes de abrir / actualizar PR)
+> **Realidad importante:** no existe “cero conflictos para siempre” si varias ramas editan las mismas líneas.
+> Lo que sí puedes lograr es **casi eliminarlos** con una estrategia de flujo + automatización.
 
-1. Trae cambios remotos:
-   ```bash
-   git fetch origin
-   ```
-2. Rebasea tu rama con `main` frecuentemente:
-   ```bash
-   git checkout <tu-rama>
-   git rebase origin/main
-   ```
-3. Si hay conflictos, resuélvelos localmente (no en GitHub web), corre checks y luego empuja:
-   ```bash
-   git add <archivos>
-   git rebase --continue
-   npm --prefix cafetrack-mobile run ts:check
-   git push --force-with-lease
-   ```
+## Estrategia recomendada (la que más reduce conflictos)
 
-> Rebase temprano y frecuente reduce muchísimo conflictos en archivos activos como `LoginScreen.tsx`, `POSScreen.tsx` y `SettingsScreen.tsx`.
+1. **Ramas cortas y PRs pequeños**
+   - 1 feature o bug por PR.
+   - Evita mezclar backend + store + UI en el mismo cambio si no es necesario.
 
-## Config útil para no repetir resolución manual
+2. **Sincronización diaria con `main`**
+   - Rebasea tu rama con `origin/main` al empezar el día y antes de push.
 
-Habilita `rerere` para que Git recuerde cómo resolviste conflictos:
+3. **Resolver conflictos siempre en local**
+   - No uses el editor web de GitHub para conflictos complejos.
+   - Corre `ts:check` antes de subir.
+
+4. **Git recuerda tus soluciones (`rerere`)**
+   - Actívalo una sola vez globalmente para que Git reaplique resoluciones anteriores.
+
+5. **No commitear artefactos de entorno**
+   - Evita subir cambios accidentales en `node_modules` o archivos generados.
+
+---
+
+## Setup una sola vez (global)
 
 ```bash
 git config --global rerere.enabled true
 git config --global rerere.autoupdate true
+git config --global pull.rebase true
+git config --global rebase.autoStash true
 ```
 
-## Buenas prácticas para este repo
+---
 
-- Haz PRs pequeños (una feature por PR).
-- Evita mezclar cambios de UI + backend + store en el mismo commit.
-- Sincroniza con `main` antes de tocar pantallas de alta colisión.
-- Si tu PR toca `LoginScreen.tsx`, `POSScreen.tsx` o `SettingsScreen.tsx`, rebasea justo antes de subir.
+## Flujo diario (sin dolores)
 
-## Comando rápido (atajo)
+Usa este script desde la raíz del repo:
 
 ```bash
-git fetch origin && git rebase origin/main && npm --prefix cafetrack-mobile run ts:check
+./scripts/git/sync_branch.sh <tu-rama>
 ```
 
-Si pasa, sube con:
+Qué hace:
+- valida que estés en un repo git,
+- cambia a la rama indicada,
+- trae cambios de remoto,
+- ejecuta `rebase origin/main`,
+- corre `npm --prefix cafetrack-mobile run ts:check`.
+
+Si todo pasa, sube con:
 
 ```bash
 git push --force-with-lease
 ```
+
+---
+
+## Si aparece conflicto de todas formas
+
+```bash
+git status
+# editar archivos con conflicto
+# eliminar <<<<<<< ======= >>>>>>>
+git add <archivos>
+git rebase --continue
+```
+
+Si te equivocas:
+
+```bash
+git rebase --abort
+```
+
+---
+
+## Zonas calientes de este repo
+
+Rebasea justo antes de push si tocas:
+- `cafetrack-mobile/src/screens/LoginScreen.tsx`
+- `cafetrack-mobile/src/screens/POSScreen.tsx`
+- `cafetrack-mobile/src/screens/SettingsScreen.tsx`
+- `cafetrack-mobile/src/components/RecipeModal.tsx`
+
+---
+
+## Checklist antes de abrir/actualizar PR
+
+- [ ] `git fetch origin`
+- [ ] `git rebase origin/main`
+- [ ] `npm --prefix cafetrack-mobile run ts:check`
+- [ ] `git status` limpio (sin `node_modules` cambiados)
+- [ ] `git push --force-with-lease`
