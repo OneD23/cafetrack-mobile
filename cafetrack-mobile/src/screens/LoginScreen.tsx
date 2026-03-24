@@ -78,7 +78,7 @@ const LoginScreen: React.FC = () => {
           </TouchableOpacity>
 
           <Text style={styles.hint}>
-            Usuario: admin | Contraseña: admin
+            Usa tus credenciales del backend
           </Text>
         </View>
       </View>
