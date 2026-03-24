@@ -22,91 +22,25 @@ const POSScreen: React.FC = () => {
   const { products, recipes } = useSelector((state: any) => state.recipes);
   const { ingredients } = useSelector((state: any) => state.inventory);
   
-  const [selectedCategory, setSelectedCategory] = useState("all");
-  const [searchQuery, setSearchQuery] = useState("");
-  const [showPaymentModal, setShowPaymentModal] = useState(false);
-  const hasInventoryData = ingredients.length > 0;
-  const categories = useMemo<string[]>(() => {
-    const allCategories = Array.from(
-      new Set<string>(products.map((p: any) => String(p.category || "")).filter(Boolean))
-    );
-    return ["all", ...allCategories];
-  }, [products]);
->>>>>>> main
+  const [username, setUsername] = useState('');
+  const [password, setPassword] = useState('');
 
-  const availableProducts = useMemo(() => {
-    return products.map((product: any) => {
-      const recipe = recipes.find((r: any) => r.productId === product.id);
-      if (!recipe) {
-        return { ...product, stock: 9999 };
-      }
-
-      if (!hasInventoryData) {
-        return { ...product, stock: 9999 };
-      }
-
-      const maxFromIngredients = recipe.items.reduce((minQty: number, ri: any) => {
-        const ingredient = ingredients.find((ing: any) => ing.id === ri.ingredientId);
-        const possible = ingredient ? Math.floor(ingredient.stock / ri.quantity) : 0;
-        return Math.min(minQty, possible);
-      }, Number.MAX_SAFE_INTEGER);
-
-      return {
-        ...product,
-        stock: Number.isFinite(maxFromIngredients) ? maxFromIngredients : 0,
-      };
-    });
-  }, [products, recipes, ingredients, hasInventoryData]);
-
-  const filteredProducts = useMemo(() => {
-    return availableProducts.filter((p: any) => {
-      const matchesCategory = selectedCategory === "all" || p.category === selectedCategory;
-      const matchesSearch = p.name.toLowerCase().includes(searchQuery.toLowerCase());
-      const hasStock = hasInventoryData ? p.stock > 0 : true;
-      return p.isActive && matchesCategory && matchesSearch && hasStock;
-    });
-  }, [availableProducts, selectedCategory, searchQuery, hasInventoryData]);
-
-  const handleAddToCart = (product: any) => {
-    if (product.stock <= 0) {
-      Alert.alert("Sin Stock", "Producto agotado");
+  const handleLogin = async () => {
+    if (!username || !password) {
+      Alert.alert('Error', 'Por favor ingresa usuario y contraseña');
       return;
     }
-    dispatch(addToCart(product));
-  };
-
-  const handleCompleteSale = async () => {
-    if (!cartItems.length) {
-      Alert.alert("Carrito vacío", "Agrega al menos un producto para continuar.");
-      return;
-    }
-    setShowPaymentModal(true);
-  };
-
-  const handleConfirmPayment = async (paymentData: {
-    method: "cash" | "card" | "transfer";
-    discount: number;
-    customer?: { name: string } | null;
-  }) => {
-    const saleItems = [...cartItems];
-    const saleTotals = { ...totals };
 
     try {
-      if (paymentData.discount > 0) {
-        dispatch(setDiscount({ type: "fixed", value: paymentData.discount }));
-      }
-
-      const result = await dispatch(
-        processSale({
-          paymentMethod: paymentData.method,
-          customerName: paymentData.customer?.name,
-        }) as any
-      ).unwrap();
-      Alert.alert("Venta completada", "Se descontaron ingredientes del inventario.");
-      setShowPaymentModal(false);
-      printInvoice(result.saleId, saleItems, saleTotals);
+      setCreatingAdmin(true);
+      await api.bootstrapAdmin(bootstrapForm);
+      Alert.alert('Éxito', 'Admin inicial creado. Ya puedes iniciar sesión.');
+      setShowBootstrapModal(false);
+      setBootstrapForm({ username: '', email: '', name: '', password: '' });
     } catch (error: any) {
-      Alert.alert("No se pudo completar", error?.message || "Error al procesar la venta");
+      Alert.alert('Error', error?.message || 'No fue posible crear el admin inicial');
+    } finally {
+      setCreatingAdmin(false);
     }
   };
 
