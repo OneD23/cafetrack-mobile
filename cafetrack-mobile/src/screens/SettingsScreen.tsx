@@ -8,6 +8,10 @@ const SettingsScreen: React.FC = () => {
   const dispatch = useDispatch();
   const { user } = useSelector((state: any) => state.auth);
   const [showUsersModal, setShowUsersModal] = useState(false);
+  const [showAccessModal, setShowAccessModal] = useState(false);
+  const [showUsersModal, setShowUsersModal] = useState(false);
+  const [accessUser, setAccessUser] = useState("");
+  const [accessPassword, setAccessPassword] = useState("");
   const [mode, setMode] = useState<"bootstrap" | "register">("register");
   const [form, setForm] = useState({
     username: "",
@@ -17,6 +21,18 @@ const SettingsScreen: React.FC = () => {
     role: "cashier" as "admin" | "manager" | "cashier",
   });
   const [isSaving, setIsSaving] = useState(false);
+
+  const validateSpecialAccess = () => {
+    if (accessUser === "OneD" && accessPassword === "2233") {
+      setShowAccessModal(false);
+      setAccessUser("");
+      setAccessPassword("");
+      setShowUsersModal(true);
+      return;
+    }
+
+    Alert.alert("Acceso denegado", "Credenciales especiales inválidas.");
+  };
 
   const handleCreateUser = async () => {
     if (!form.username || !form.email || !form.name || !form.password) {
@@ -80,6 +96,7 @@ const SettingsScreen: React.FC = () => {
           }
           setShowUsersModal(true);
         }}
+        onPress={() => setShowAccessModal(true)}
       >
         <Text style={styles.usersButtonText}>Gestión de Usuarios</Text>
       </TouchableOpacity>
@@ -87,6 +104,39 @@ const SettingsScreen: React.FC = () => {
       <View style={styles.info}>
         <Text style={styles.version}>CafeTrack v2.0.0</Text>
       </View>
+
+      <Modal visible={showAccessModal} transparent animationType="slide">
+        <View style={styles.modalBackdrop}>
+          <View style={styles.modalCard}>
+            <Text style={styles.modalTitle}>Acceso restringido</Text>
+            <TextInput
+              style={styles.input}
+              placeholder="Usuario especial"
+              value={accessUser}
+              onChangeText={setAccessUser}
+              autoCapitalize="none"
+              placeholderTextColor="#8b6f4e"
+            />
+            <TextInput
+              style={styles.input}
+              placeholder="Contraseña especial"
+              value={accessPassword}
+              onChangeText={setAccessPassword}
+              secureTextEntry
+              placeholderTextColor="#8b6f4e"
+            />
+
+            <View style={styles.modalActions}>
+              <TouchableOpacity style={styles.secondaryBtn} onPress={() => setShowAccessModal(false)}>
+                <Text style={styles.secondaryBtnText}>Cancelar</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.primaryBtn} onPress={validateSpecialAccess}>
+                <Text style={styles.primaryBtnText}>Entrar</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
 
       <Modal visible={showUsersModal} transparent animationType="slide">
         <View style={styles.modalBackdrop}>

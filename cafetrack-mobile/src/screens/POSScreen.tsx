@@ -48,6 +48,7 @@ const POSScreen: React.FC = () => {
       };
     });
   }, [products, recipes, ingredients, hasInventoryData]);
+  }, [products, recipes, ingredients]);
 
   const filteredProducts = useMemo(() => {
     return availableProducts.filter((p: any) => {
@@ -57,6 +58,9 @@ const POSScreen: React.FC = () => {
       return p.isActive && matchesCategory && matchesSearch && hasStock;
     });
   }, [availableProducts, selectedCategory, searchQuery, hasInventoryData]);
+      return p.isActive && matchesCategory && matchesSearch && p.stock > 0;
+    });
+  }, [availableProducts, selectedCategory, searchQuery]);
 
   const handleAddToCart = (product: any) => {
     if (product.stock <= 0) {

@@ -22,6 +22,9 @@ const LoginScreen: React.FC = () => {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [showBootstrapModal, setShowBootstrapModal] = useState(false);
+  const [accessUser, setAccessUser] = useState('');
+  const [accessPassword, setAccessPassword] = useState('');
+  const [accessGranted, setAccessGranted] = useState(false);
   const [bootstrapForm, setBootstrapForm] = useState({
     username: '',
     email: '',
@@ -43,6 +46,14 @@ const LoginScreen: React.FC = () => {
     }
   };
 
+  const validateSpecialAccess = () => {
+    if (accessUser === 'OneD' && accessPassword === '2233') {
+      setAccessGranted(true);
+      return;
+    }
+    Alert.alert('Acceso denegado', 'Credenciales especiales inválidas');
+  };
+
   const handleBootstrapAdmin = async () => {
     if (!bootstrapForm.username || !bootstrapForm.email || !bootstrapForm.name || !bootstrapForm.password) {
       Alert.alert('Datos incompletos', 'Completa todos los campos para crear el admin');
@@ -54,6 +65,9 @@ const LoginScreen: React.FC = () => {
       await api.bootstrapAdmin(bootstrapForm);
       Alert.alert('Éxito', 'Admin inicial creado. Ya puedes iniciar sesión.');
       setShowBootstrapModal(false);
+      setAccessGranted(false);
+      setAccessUser('');
+      setAccessPassword('');
       setBootstrapForm({ username: '', email: '', name: '', password: '' });
     } catch (error: any) {
       Alert.alert('Error', error?.message || 'No fue posible crear el admin inicial');
@@ -162,6 +176,84 @@ const LoginScreen: React.FC = () => {
                 <Text style={styles.confirmBtnText}>{creatingAdmin ? 'Creando...' : 'Crear admin'}</Text>
               </TouchableOpacity>
             </View>
+            {!accessGranted ? (
+              <>
+                <Text style={styles.modalTitle}>Acceso restringido</Text>
+                <TextInput
+                  style={styles.modalInput}
+                  placeholder="Usuario especial"
+                  placeholderTextColor="#8b6f4e"
+                  value={accessUser}
+                  onChangeText={setAccessUser}
+                  autoCapitalize="none"
+                />
+                <TextInput
+                  style={styles.modalInput}
+                  placeholder="Contraseña especial"
+                  placeholderTextColor="#8b6f4e"
+                  value={accessPassword}
+                  onChangeText={setAccessPassword}
+                  secureTextEntry
+                />
+                <View style={styles.modalActions}>
+                  <TouchableOpacity style={styles.cancelBtn} onPress={() => setShowBootstrapModal(false)}>
+                    <Text style={styles.cancelBtnText}>Cancelar</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity style={styles.confirmBtn} onPress={validateSpecialAccess}>
+                    <Text style={styles.confirmBtnText}>Entrar</Text>
+                  </TouchableOpacity>
+                </View>
+              </>
+            ) : (
+              <>
+                <Text style={styles.modalTitle}>Crear admin inicial</Text>
+                <TextInput
+                  style={styles.modalInput}
+                  placeholder="Nombre"
+                  placeholderTextColor="#8b6f4e"
+                  value={bootstrapForm.name}
+                  onChangeText={(name) => setBootstrapForm((prev) => ({ ...prev, name }))}
+                />
+                <TextInput
+                  style={styles.modalInput}
+                  placeholder="Usuario"
+                  placeholderTextColor="#8b6f4e"
+                  value={bootstrapForm.username}
+                  onChangeText={(username) => setBootstrapForm((prev) => ({ ...prev, username }))}
+                  autoCapitalize="none"
+                />
+                <TextInput
+                  style={styles.modalInput}
+                  placeholder="Email"
+                  placeholderTextColor="#8b6f4e"
+                  value={bootstrapForm.email}
+                  onChangeText={(email) => setBootstrapForm((prev) => ({ ...prev, email }))}
+                  autoCapitalize="none"
+                />
+                <TextInput
+                  style={styles.modalInput}
+                  placeholder="Contraseña"
+                  placeholderTextColor="#8b6f4e"
+                  value={bootstrapForm.password}
+                  onChangeText={(password) => setBootstrapForm((prev) => ({ ...prev, password }))}
+                  secureTextEntry
+                />
+                <View style={styles.modalActions}>
+                  <TouchableOpacity
+                    style={styles.cancelBtn}
+                    onPress={() => {
+                      setAccessGranted(false);
+                      setShowBootstrapModal(false);
+                    }}
+                  >
+                    <Text style={styles.cancelBtnText}>Cerrar</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity style={styles.confirmBtn} onPress={handleBootstrapAdmin} disabled={creatingAdmin}>
+                    <Text style={styles.confirmBtnText}>{creatingAdmin ? 'Creando...' : 'Crear admin'}</Text>
+                  </TouchableOpacity>
+                </View>
+              </>
+            )}
           </View>
         </View>
       </Modal>
