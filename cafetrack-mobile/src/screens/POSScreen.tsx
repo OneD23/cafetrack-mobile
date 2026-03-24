@@ -48,7 +48,6 @@ const POSScreen: React.FC = () => {
       };
     });
   }, [products, recipes, ingredients, hasInventoryData]);
-  }, [products, recipes, ingredients]);
 
   const filteredProducts = useMemo(() => {
     return availableProducts.filter((p: any) => {
@@ -58,9 +57,6 @@ const POSScreen: React.FC = () => {
       return p.isActive && matchesCategory && matchesSearch && hasStock;
     });
   }, [availableProducts, selectedCategory, searchQuery, hasInventoryData]);
-      return p.isActive && matchesCategory && matchesSearch && p.stock > 0;
-    });
-  }, [availableProducts, selectedCategory, searchQuery]);
 
   const handleAddToCart = (product: any) => {
     if (product.stock <= 0) {
@@ -157,6 +153,14 @@ const POSScreen: React.FC = () => {
         numColumns={2}
         keyExtractor={(item) => item.id}
         contentContainerStyle={styles.productsGrid}
+        ListEmptyComponent={
+          <View style={styles.emptyState}>
+            <Text style={styles.emptyStateTitle}>No hay productos para mostrar</Text>
+            <Text style={styles.emptyStateSubtitle}>
+              Verifica búsqueda, categorías o inventario disponible.
+            </Text>
+          </View>
+        }
         renderItem={({ item }) => (
           <TouchableOpacity 
             style={styles.productCard}
@@ -242,6 +246,23 @@ const styles = StyleSheet.create({
   productsGrid: {
     padding: 8,
     paddingBottom: 300,
+  },
+  emptyState: {
+    marginTop: 28,
+    alignItems: "center",
+    paddingHorizontal: 16,
+  },
+  emptyStateTitle: {
+    color: "#f5f1e8",
+    fontSize: 16,
+    fontWeight: "700",
+    textAlign: "center",
+  },
+  emptyStateSubtitle: {
+    marginTop: 6,
+    color: "#8b6f4e",
+    fontSize: 13,
+    textAlign: "center",
   },
   productCard: {
     flex: 1,
