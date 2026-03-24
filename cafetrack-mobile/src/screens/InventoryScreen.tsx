@@ -9,9 +9,11 @@ import {
   Alert,
   TextInput,
   Modal,
+  Image,
 } from 'react-native';
 import { useSelector, useDispatch } from 'react-redux';
 import { Ionicons } from '@expo/vector-icons';
+import type { AppDispatch } from '../store';
 import { RecipeModal } from '../components/RecipeModal';
 import {
   addIngredient,
@@ -23,7 +25,7 @@ import {
 import { deleteProduct } from '../store/recipesSlice';
 
 export const InventoryScreen: React.FC = () => {
-  const dispatch = useDispatch();
+  const dispatch = useDispatch<AppDispatch>();
   const { ingredients, lowStockAlerts } = useSelector((state: any) => state.inventory);
   const { products, recipes } = useSelector((state: any) => state.recipes);
   
@@ -195,7 +197,11 @@ export const InventoryScreen: React.FC = () => {
     return (
       <View style={styles.productCard}>
         <View style={styles.productHeader}>
-          <Text style={styles.productIcon}>{item.icon}</Text>
+          {item.image ? (
+            <Image source={{ uri: item.image }} style={styles.productImage} />
+          ) : (
+            <Text style={styles.productIcon}>{item.icon}</Text>
+          )}
           <View style={styles.productInfo}>
             <Text style={styles.productName}>{item.name}</Text>
             <Text style={styles.productCategory}>{item.category}</Text>
@@ -209,6 +215,7 @@ export const InventoryScreen: React.FC = () => {
         {recipe && (
           <View style={styles.recipePreview}>
             <Text style={styles.recipeTitle}>📝 Receta ({recipe.preparationTime} min):</Text>
+            {recipe.image ? <Image source={{ uri: recipe.image }} style={styles.recipeImage} /> : null}
             {recipe.items.map((ri: any, idx: number) => {
               const ing = ingredients.find((i: any) => i.id === ri.ingredientId);
               return (
@@ -577,6 +584,13 @@ const styles = StyleSheet.create({
     fontSize: 32,
     marginRight: 12,
   },
+  productImage: {
+    width: 42,
+    height: 42,
+    borderRadius: 8,
+    marginRight: 12,
+    backgroundColor: '#1a0f0a',
+  },
   productInfo: {
     flex: 1,
   },
@@ -607,6 +621,13 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     padding: 12,
     marginBottom: 12,
+  },
+  recipeImage: {
+    width: '100%',
+    height: 130,
+    borderRadius: 10,
+    marginBottom: 8,
+    backgroundColor: '#2c1810',
   },
   recipeTitle: {
     color: '#d4a574',

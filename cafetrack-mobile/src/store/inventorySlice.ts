@@ -1,6 +1,20 @@
 import { createSlice, PayloadAction, createAsyncThunk } from '@reduxjs/toolkit';
 import { api } from '../api/client';
 
+interface InventoryIngredient {
+  id: string;
+  [key: string]: any;
+}
+
+interface InventoryState {
+  ingredients: InventoryIngredient[];
+  movements: any[];
+  loading: boolean;
+  error: string | null;
+  lastSync: string | null;
+  lowStockAlerts: string[];
+}
+
 // Thunks para API
 export const fetchIngredients = createAsyncThunk(
   'inventory/fetchIngredients',
@@ -50,16 +64,18 @@ export const deductIngredientsForSale = createAsyncThunk(
   }
 );
 
+const initialState: InventoryState = {
+  ingredients: [],
+  movements: [],
+  loading: false,
+  error: null,
+  lastSync: null,
+  lowStockAlerts: [],
+};
+
 const inventorySlice = createSlice({
   name: 'inventory',
-  initialState: {
-    ingredients: [],
-    movements: [],
-    loading: false,
-    error: null,
-    lastSync: null,
-    lowStockAlerts: [],
-  },
+  initialState,
   reducers: {
     setIngredients: (state, action) => {
       state.ingredients = action.payload;
@@ -89,7 +105,7 @@ const inventorySlice = createSlice({
       })
       .addCase(fetchIngredients.rejected, (state, action) => {
         state.loading = false;
-        state.error = action.error.message;
+        state.error = action.error.message || null;
       })
       // addIngredient
       .addCase(addIngredient.pending, (state) => {
@@ -101,7 +117,7 @@ const inventorySlice = createSlice({
       })
       .addCase(addIngredient.rejected, (state, action) => {
         state.loading = false;
-        state.error = action.error.message;
+        state.error = action.error.message || null;
       })
       // deleteIngredient
       .addCase(deleteIngredient.fulfilled, (state, action) => {
