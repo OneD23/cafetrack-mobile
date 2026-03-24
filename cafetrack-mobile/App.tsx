@@ -4,6 +4,7 @@ import { NavigationContainer } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { Ionicons } from '@expo/vector-icons';
 import { store } from './src/store';
+import { fetchIngredients } from './src/store/inventorySlice';
 
 import LoginScreen from './src/screens/LoginScreen';
 import POSScreen from './src/screens/POSScreen';
@@ -59,6 +60,12 @@ function AppContent() {
     });
     return unsubscribe;
   }, []);
+
+  React.useEffect(() => {
+    if (user) {
+      store.dispatch(fetchIngredients() as any);
+    }
+  }, [user]);
 
   return user ? <MainTabs /> : <LoginScreen />;
 }
