@@ -12,6 +12,7 @@ import {
 } from 'react-native';
 import { useSelector, useDispatch } from 'react-redux';
 import { Ionicons } from '@expo/vector-icons';
+import type { AppDispatch } from '../store';
 import { RecipeModal } from '../components/RecipeModal';
 import {
   addIngredient,
@@ -23,7 +24,7 @@ import {
 import { deleteProduct } from '../store/recipesSlice';
 
 export const InventoryScreen: React.FC = () => {
-  const dispatch = useDispatch();
+  const dispatch = useDispatch<AppDispatch>();
   const { ingredients, lowStockAlerts } = useSelector((state: any) => state.inventory);
   const { products, recipes } = useSelector((state: any) => state.recipes);
   

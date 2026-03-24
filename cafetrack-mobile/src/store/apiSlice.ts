@@ -8,7 +8,7 @@ const getToken = async () => {
 export const apiSlice = createApi({
   reducerPath: 'api',
   baseQuery: fetchBaseQuery({
-    baseUrl: 'http://localhost:5000/api',
+    baseUrl: process.env.EXPO_PUBLIC_API_URL || 'http://localhost:5000/api',
     prepareHeaders: async (headers: any) => {
       const token = await getToken();
       if (token) {

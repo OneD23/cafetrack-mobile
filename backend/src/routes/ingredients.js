@@ -1,6 +1,7 @@
 const express = require('express');
 const Ingredient = require('../models/Ingredient');
 const InventoryMovement = require('../models/InventoryMovement');
+const Recipe = require('../models/Recipe');
 const { protect } = require('../middleware/auth');
 
 const router = express.Router();
@@ -210,6 +211,109 @@ router.post('/:id/adjust', protect, async (req, res) => {
       success: false,
       message: error.message
     });
+  }
+});
+
+// @route   DELETE /api/ingredients/:id
+// @desc    Eliminar ingrediente (soft delete)
+// @access  Private/Admin
+router.delete('/:id', protect, async (req, res) => {
+  try {
+    const ingredient = await Ingredient.findById(req.params.id);
+
+    if (!ingredient) {
+      return res.status(404).json({
+        success: false,
+        message: 'Ingrediente no encontrado'
+      });
+    }
+
+    ingredient.isActive = false;
+    ingredient.lastModified = Date.now();
+    ingredient.modifiedBy = req.user._id;
+    await ingredient.save();
+
+    req.app.get('io').emit('ingredient:deleted', { id: ingredient._id });
+
+    res.json({
+      success: true,
+      message: 'Ingrediente eliminado',
+      data: ingredient
+    });
+  } catch (error) {
+    res.status(400).json({
+      success: false,
+      message: error.message
+    });
+  }
+});
+
+// @route   POST /api/ingredients/deduct
+// @desc    Descontar ingredientes por receta
+// @access  Private
+router.post('/deduct', protect, async (req, res) => {
+  const session = await Ingredient.startSession();
+  session.startTransaction();
+
+  try {
+    const { recipeId, quantity, saleId } = req.body;
+    const saleQuantity = Number(quantity);
+
+    if (!recipeId || !saleQuantity || saleQuantity <= 0) {
+      throw new Error('recipeId y quantity son obligatorios');
+    }
+
+    const recipe = await Recipe.findById(recipeId).session(session);
+    if (!recipe) {
+      throw new Error('Receta no encontrada');
+    }
+
+    const updatedIngredients = [];
+
+    for (const recipeItem of recipe.items) {
+      const ingredient = await Ingredient.findById(recipeItem.ingredientId).session(session);
+      if (!ingredient) {
+        throw new Error('Ingrediente no encontrado en receta');
+      }
+
+      const deductQty = recipeItem.quantity * saleQuantity;
+      if (ingredient.stock < deductQty) {
+        throw new Error(`Stock insuficiente para ${ingredient.name}`);
+      }
+
+      const previousStock = ingredient.stock;
+      ingredient.stock -= deductQty;
+      await ingredient.save({ session });
+
+      await InventoryMovement.create([{
+        type: 'recipe_deduction',
+        ingredient: ingredient._id,
+        quantity: -deductQty,
+        previousStock,
+        newStock: ingredient.stock,
+        reason: saleId ? `Venta: ${saleId}` : 'Deducción por receta',
+        user: req.user._id
+      }], { session });
+
+      updatedIngredients.push(ingredient);
+    }
+
+    await session.commitTransaction();
+
+    req.app.get('io').emit('inventory:updated', updatedIngredients);
+
+    res.json({
+      success: true,
+      ingredients: updatedIngredients
+    });
+  } catch (error) {
+    await session.abortTransaction();
+    res.status(400).json({
+      success: false,
+      message: error.message
+    });
+  } finally {
+    session.endSession();
   }
 });
 
