@@ -113,6 +113,7 @@ export const RecipeModal: React.FC<RecipeModalProps> = ({
       recipe: {
         items: validItems,
         preparationTime: parseInt(prepTime) || 2,
+        image: recipeImage || undefined,
       },
     }));
 
