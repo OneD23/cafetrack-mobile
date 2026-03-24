@@ -93,3 +93,19 @@ Rebasea justo antes de push si tocas:
 - [ ] `npm --prefix cafetrack-mobile run ts:check`
 - [ ] `git status` limpio (sin `node_modules` cambiados)
 - [ ] `git push --force-with-lease`
+
+---
+
+## ¿Qué hacer en la pantalla **Resolve conflicts** de GitHub?
+
+Si estás en `github.com/.../pull/.../conflicts`:
+
+1. En cada archivo en conflicto, usa **Accept incoming change** cuando quieras conservar lo que viene de `main`.
+2. Usa **Accept current change** cuando quieras conservar lo de tu rama del PR.
+3. Si necesitas ambas cosas, usa **Accept both changes** y luego limpia manualmente líneas duplicadas.
+4. Elimina cualquier marcador `<<<<<<<`, `=======`, `>>>>>>>`.
+5. Revisa que el archivo compile (sobre todo `LoginScreen.tsx` y `RecipeModal.tsx`).
+6. Haz clic en **Mark as resolved** por archivo.
+7. Al final, haz **Commit merge**.
+
+> Recomendado: para conflictos grandes, mejor resolver en local con rebase y luego `git push --force-with-lease`.
