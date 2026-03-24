@@ -1,5 +1,6 @@
 import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { api } from '../api/client';
 
 interface User {
   id: string;
@@ -24,17 +25,21 @@ const initialState: AuthState = {
 
 export const loginUser = createAsyncThunk(
   'auth/login',
-  async (credentials: { username: string; password: string }) => {
-    // Simulación de login - reemplazar con tu API
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    
-    if (credentials.username === 'admin' && credentials.password === 'admin') {
-      const user = { id: '1', username: 'admin', name: 'Administrador', role: 'admin' };
-      const token = 'fake-jwt-token';
+  async (credentials: { username: string; password: string }, { rejectWithValue }) => {
+    try {
+      const response = await api.login(credentials);
+      const token = response.token;
+      const user = response.user;
+
+      if (!token || !user) {
+        throw new Error('Respuesta de autenticación inválida');
+      }
+
       await AsyncStorage.setItem('token', token);
       return { user, token };
+    } catch (error: any) {
+      return rejectWithValue(error?.message || 'Credenciales inválidas');
     }
-    throw new Error('Credenciales inválidas');
   }
 );
 
@@ -64,7 +69,7 @@ const authSlice = createSlice({
       })
       .addCase(loginUser.rejected, (state, action) => {
         state.isLoading = false;
-        state.error = action.error.message || 'Error de login';
+        state.error = (action.payload as string) || action.error.message || 'Error de login';
       });
   },
 });

@@ -1,59 +1,69 @@
-import { useEffect, useCallback } from 'react';
-import { useSelector, useDispatch } from 'react-redux';
-import NetInfo from '@react-native-community/netinfo';
-import * as BackgroundFetch from 'expo-background-fetch';
-import * as TaskManager from 'expo-task-manager';
-import { useSyncOfflineDataMutation } from '../store/apiSlice';
+import { useCallback } from 'react';
+import { useDispatch, useSelector } from 'react-redux';
+import { api } from '../api/client';
 import { clearQueue, getQueue } from '../store/offlineSlice';
-
-const SYNC_TASK = 'background-sync';
-
-TaskManager.defineTask(SYNC_TASK, async () => {
-  try {
-    const queue = await AsyncStorage.getItem('offlineQueue');
-    if (queue) {
-      const items = JSON.parse(queue);
-      // Sincronizar con API
-      return items.length > 0 ? BackgroundFetch.BackgroundFetchResult.NewData 
-                              : BackgroundFetch.BackgroundFetchResult.NoData;
-    }
-    return BackgroundFetch.BackgroundFetchResult.NoData;
-  } catch (error) {
-    return BackgroundFetch.BackgroundFetchResult.Failed;
-  }
-});
 
 export const useOfflineSync = () => {
   const dispatch = useDispatch();
-  const queue = useSelector(getQueue);
-  const [syncData] = useSyncOfflineDataMutation();
-
-  useEffect(() => {
-    const unsubscribe = NetInfo.addEventListener(state => {
-      if (state.isConnected && queue.length > 0) {
-        syncOfflineQueue();
-      }
-    });
-
-    // Registrar background task
-    BackgroundFetch.registerTaskAsync(SYNC_TASK, {
-      minimumInterval: 15 * 60, // 15 minutos
-      stopOnTerminate: false,
-      startOnBoot: true,
-    });
-
-    return () => unsubscribe();
-  }, [queue]);
+  const queue = useSelector(getQueue) as Array<{
+    id: string;
+    type: 'sale' | 'update' | 'delete';
+    data: any;
+  }>;
 
   const syncOfflineQueue = useCallback(async () => {
-    try {
-      const result = await syncData({ operations: queue }).unwrap();
-      dispatch(clearQueue());
-      return result;
-    } catch (error) {
-      console.error('Sync failed:', error);
+    if (queue.length === 0) {
+      return { synced: 0 };
     }
-  }, [queue, syncData, dispatch]);
 
-  return { syncOfflineQueue, pendingCount: queue.length };
+    let synced = 0;
+    const failed: string[] = [];
+
+    for (const operation of queue) {
+      try {
+        if (operation.type === 'sale') {
+          await api.createSale(operation.data);
+          synced += 1;
+          continue;
+        }
+
+        if (operation.type === 'update' && operation.data?.ingredientId) {
+          const { ingredientId, newStock, reason } = operation.data;
+          await api.adjustStock(ingredientId, newStock, reason || 'Sync offline');
+          synced += 1;
+          continue;
+        }
+
+        if (operation.type === 'delete' && operation.data?.ingredientId) {
+          await api.deleteIngredient(operation.data.ingredientId);
+          synced += 1;
+          continue;
+        }
+
+        failed.push(operation.id);
+      } catch (error) {
+        failed.push(operation.id);
+      }
+    }
+
+    if (failed.length === 0) {
+      dispatch(clearQueue());
+    }
+
+    return {
+      synced,
+      failed,
+      pending: queue.length - synced,
+    };
+  }, [dispatch, queue]);
+
+  const clearOfflineQueue = useCallback(() => {
+    dispatch(clearQueue());
+  }, [dispatch]);
+
+  return {
+    syncOfflineQueue,
+    clearOfflineQueue,
+    pendingCount: queue.length,
+  };
 };
