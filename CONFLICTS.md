@@ -142,3 +142,33 @@ git rebase --continue
 ```
 
 Solo elimina un archivo si **realmente** fue reemplazado por otro y actualizaste todos los imports.
+
+---
+
+## "0 conflicts" pero el botón **Mark as resolved** está deshabilitado
+
+Esto pasa mucho en GitHub y normalmente significa una de estas cosas:
+
+1. **Ese archivo ya no tiene bloques por resolver** y los conflictos reales están en otro archivo.
+2. **No aplicaste ningún cambio en ese archivo** (GitHub no habilita el botón si no detecta resolución real).
+3. Quedan conflictos en otra sección/archivo del panel izquierdo.
+
+### Qué hacer
+
+- Pulsa **Next** y revisa los demás archivos (`CONFLICTS.md`, `RecipeModal.tsx`, etc.).
+- En cada archivo con conflicto, elige `Accept current/incoming/both`, limpia marcadores y guarda.
+- Cuando termine, el botón **Mark as resolved** se habilita para ese archivo.
+- Repite hasta que el contador global llegue a **0** y luego usa **Commit merge**.
+
+### Si GitHub sigue bloqueado
+
+Resuélvelo en local (más confiable):
+
+```bash
+git fetch origin
+git checkout <tu-rama>
+git rebase origin/main
+# resolver archivos
+npm --prefix cafetrack-mobile run ts:check
+git push --force-with-lease
+```
