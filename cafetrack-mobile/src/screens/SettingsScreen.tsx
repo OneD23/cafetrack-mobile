@@ -7,6 +7,7 @@ import { api } from "../api/client";
 const SettingsScreen: React.FC = () => {
   const dispatch = useDispatch();
   const { user } = useSelector((state: any) => state.auth);
+  const [showUsersModal, setShowUsersModal] = useState(false);
   const [showAccessModal, setShowAccessModal] = useState(false);
   const [showUsersModal, setShowUsersModal] = useState(false);
   const [accessUser, setAccessUser] = useState("");
@@ -88,6 +89,13 @@ const SettingsScreen: React.FC = () => {
 
       <TouchableOpacity
         style={styles.usersButton}
+        onPress={() => {
+          if (user?.role !== "admin") {
+            Alert.alert("Acceso denegado", "Solo administradores pueden gestionar usuarios.");
+            return;
+          }
+          setShowUsersModal(true);
+        }}
         onPress={() => setShowAccessModal(true)}
       >
         <Text style={styles.usersButtonText}>Gestión de Usuarios</Text>

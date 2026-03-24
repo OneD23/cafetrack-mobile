@@ -23,11 +23,16 @@ const POSScreen: React.FC = () => {
   
   const [selectedCategory, setSelectedCategory] = useState("all");
   const [searchQuery, setSearchQuery] = useState("");
+  const hasInventoryData = ingredients.length > 0;
 
   const availableProducts = useMemo(() => {
     return products.map((product: any) => {
       const recipe = recipes.find((r: any) => r.productId === product.id);
       if (!recipe) {
+        return { ...product, stock: 9999 };
+      }
+
+      if (!hasInventoryData) {
         return { ...product, stock: 9999 };
       }
 
@@ -42,12 +47,17 @@ const POSScreen: React.FC = () => {
         stock: Number.isFinite(maxFromIngredients) ? maxFromIngredients : 0,
       };
     });
+  }, [products, recipes, ingredients, hasInventoryData]);
   }, [products, recipes, ingredients]);
 
   const filteredProducts = useMemo(() => {
     return availableProducts.filter((p: any) => {
       const matchesCategory = selectedCategory === "all" || p.category === selectedCategory;
       const matchesSearch = p.name.toLowerCase().includes(searchQuery.toLowerCase());
+      const hasStock = hasInventoryData ? p.stock > 0 : true;
+      return p.isActive && matchesCategory && matchesSearch && hasStock;
+    });
+  }, [availableProducts, selectedCategory, searchQuery, hasInventoryData]);
       return p.isActive && matchesCategory && matchesSearch && p.stock > 0;
     });
   }, [availableProducts, selectedCategory, searchQuery]);
@@ -155,7 +165,9 @@ const POSScreen: React.FC = () => {
             <Text style={styles.productIcon}>{item.icon}</Text>
             <Text style={styles.productName}>{item.name}</Text>
             <Text style={styles.productPrice}>${item.price.toFixed(2)}</Text>
-            <Text style={styles.productStock}>Stock: {item.stock}</Text>
+            <Text style={styles.productStock}>
+              Stock: {hasInventoryData ? item.stock : "—"}
+            </Text>
           </TouchableOpacity>
         )}
       />

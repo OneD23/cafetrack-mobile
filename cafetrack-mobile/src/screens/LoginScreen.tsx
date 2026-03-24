@@ -133,6 +133,49 @@ const LoginScreen: React.FC = () => {
       <Modal visible={showBootstrapModal} transparent animationType="slide">
         <View style={styles.modalBackdrop}>
           <View style={styles.modalCard}>
+            <Text style={styles.modalTitle}>Crear admin inicial</Text>
+            <Text style={styles.modalDescription}>
+              Este formulario solo funcionará si no existen usuarios en el sistema.
+            </Text>
+            <TextInput
+              style={styles.modalInput}
+              placeholder="Nombre"
+              placeholderTextColor="#8b6f4e"
+              value={bootstrapForm.name}
+              onChangeText={(name) => setBootstrapForm((prev) => ({ ...prev, name }))}
+            />
+            <TextInput
+              style={styles.modalInput}
+              placeholder="Usuario"
+              placeholderTextColor="#8b6f4e"
+              value={bootstrapForm.username}
+              onChangeText={(username) => setBootstrapForm((prev) => ({ ...prev, username }))}
+              autoCapitalize="none"
+            />
+            <TextInput
+              style={styles.modalInput}
+              placeholder="Email"
+              placeholderTextColor="#8b6f4e"
+              value={bootstrapForm.email}
+              onChangeText={(email) => setBootstrapForm((prev) => ({ ...prev, email }))}
+              autoCapitalize="none"
+            />
+            <TextInput
+              style={styles.modalInput}
+              placeholder="Contraseña"
+              placeholderTextColor="#8b6f4e"
+              value={bootstrapForm.password}
+              onChangeText={(password) => setBootstrapForm((prev) => ({ ...prev, password }))}
+              secureTextEntry
+            />
+            <View style={styles.modalActions}>
+              <TouchableOpacity style={styles.cancelBtn} onPress={() => setShowBootstrapModal(false)}>
+                <Text style={styles.cancelBtnText}>Cerrar</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.confirmBtn} onPress={handleBootstrapAdmin} disabled={creatingAdmin}>
+                <Text style={styles.confirmBtnText}>{creatingAdmin ? 'Creando...' : 'Crear admin'}</Text>
+              </TouchableOpacity>
+            </View>
             {!accessGranted ? (
               <>
                 <Text style={styles.modalTitle}>Acceso restringido</Text>
@@ -305,6 +348,11 @@ const styles = StyleSheet.create({
     fontSize: 20,
     fontWeight: "700",
     marginBottom: 12,
+  },
+  modalDescription: {
+    color: "#d8c6b2",
+    marginBottom: 12,
+    fontSize: 13,
   },
   modalInput: {
     backgroundColor: "#2c1810",
