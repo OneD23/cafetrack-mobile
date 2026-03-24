@@ -22,6 +22,7 @@ const POSScreen: React.FC = () => {
   const { products, recipes } = useSelector((state: any) => state.recipes);
   const { ingredients } = useSelector((state: any) => state.inventory);
   
+<<<<<<< HEAD
   const [selectedCategory, setSelectedCategory] = useState("all");
   const [searchQuery, setSearchQuery] = useState("");
   const [showPaymentModal, setShowPaymentModal] = useState(false);
@@ -32,6 +33,18 @@ const POSScreen: React.FC = () => {
     );
     return ["all", ...allCategories];
   }, [products]);
+=======
+  const [username, setUsername] = useState('');
+  const [password, setPassword] = useState('');
+  const [showBootstrapModal, setShowBootstrapModal] = useState(false);
+  const [bootstrapForm, setBootstrapForm] = useState({
+    username: '',
+    email: '',
+    name: '',
+    password: '',
+  });
+  const [creatingAdmin, setCreatingAdmin] = useState(false);
+>>>>>>> 80bc182f82974c343c153fccbe4709056e629c19
 
   const availableProducts = useMemo(() => {
     return products.map((product: any) => {
@@ -74,6 +87,7 @@ const POSScreen: React.FC = () => {
     dispatch(addToCart(product));
   };
 
+<<<<<<< HEAD
   const handleCompleteSale = async () => {
     if (!cartItems.length) {
       Alert.alert("Carrito vacío", "Agrega al menos un producto para continuar.");
@@ -104,6 +118,20 @@ const POSScreen: React.FC = () => {
       Alert.alert("Venta completada", "Se descontaron ingredientes del inventario.");
       setShowPaymentModal(false);
       printInvoice(result.saleId, saleItems, saleTotals);
+=======
+  const handleBootstrapAdmin = async () => {
+    if (!bootstrapForm.username || !bootstrapForm.email || !bootstrapForm.name || !bootstrapForm.password) {
+      Alert.alert('Datos incompletos', 'Completa todos los campos para crear el admin');
+      return;
+    }
+
+    try {
+      setCreatingAdmin(true);
+      await api.bootstrapAdmin(bootstrapForm);
+      Alert.alert('Éxito', 'Admin inicial creado. Ya puedes iniciar sesión.');
+      setShowBootstrapModal(false);
+      setBootstrapForm({ username: '', email: '', name: '', password: '' });
+>>>>>>> 80bc182f82974c343c153fccbe4709056e629c19
     } catch (error: any) {
       Alert.alert("No se pudo completar", error?.message || "Error al procesar la venta");
     }
@@ -206,6 +234,48 @@ const POSScreen: React.FC = () => {
             <Text style={styles.emptyStateSubtitle}>
               Verifica búsqueda, categorías o inventario disponible.
             </Text>
+<<<<<<< HEAD
+=======
+            <TextInput
+              style={styles.modalInput}
+              placeholder="Nombre"
+              placeholderTextColor="#8b6f4e"
+              value={bootstrapForm.name}
+              onChangeText={(name) => setBootstrapForm((prev) => ({ ...prev, name }))}
+            />
+            <TextInput
+              style={styles.modalInput}
+              placeholder="Usuario"
+              placeholderTextColor="#8b6f4e"
+              value={bootstrapForm.username}
+              onChangeText={(username) => setBootstrapForm((prev) => ({ ...prev, username }))}
+              autoCapitalize="none"
+            />
+            <TextInput
+              style={styles.modalInput}
+              placeholder="Email"
+              placeholderTextColor="#8b6f4e"
+              value={bootstrapForm.email}
+              onChangeText={(email) => setBootstrapForm((prev) => ({ ...prev, email }))}
+              autoCapitalize="none"
+            />
+            <TextInput
+              style={styles.modalInput}
+              placeholder="Contraseña"
+              placeholderTextColor="#8b6f4e"
+              value={bootstrapForm.password}
+              onChangeText={(password) => setBootstrapForm((prev) => ({ ...prev, password }))}
+              secureTextEntry
+            />
+            <View style={styles.modalActions}>
+              <TouchableOpacity style={styles.cancelBtn} onPress={() => setShowBootstrapModal(false)}>
+                <Text style={styles.cancelBtnText}>Cerrar</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.confirmBtn} onPress={handleBootstrapAdmin} disabled={creatingAdmin}>
+                <Text style={styles.confirmBtnText}>{creatingAdmin ? 'Creando...' : 'Crear admin'}</Text>
+              </TouchableOpacity>
+            </View>
+>>>>>>> 80bc182f82974c343c153fccbe4709056e629c19
           </View>
         }
         renderItem={({ item }) => (
