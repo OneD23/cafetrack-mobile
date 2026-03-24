@@ -1,7 +1,29 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-const API_URL = 'http://localhost:5000/'; // Cambiar por tu IP
+const API_URL = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:5000/api';
 // Para producción: 'https://tu-api-render.com/api'
+
+const mapIds = (payload: any): any => {
+  if (Array.isArray(payload)) {
+    return payload.map(mapIds);
+  }
+
+  if (payload && typeof payload === 'object') {
+    const mapped: Record<string, any> = {};
+
+    Object.keys(payload).forEach((key) => {
+      mapped[key] = mapIds(payload[key]);
+    });
+
+    if (mapped._id && !mapped.id) {
+      mapped.id = mapped._id;
+    }
+
+    return mapped;
+  }
+
+  return payload;
+};
 
 class ApiClient {
   private baseUrl: string;
@@ -29,7 +51,7 @@ class ApiClient {
 
     try {
       const response = await fetch(`${this.baseUrl}${endpoint}`, config);
-      const data = await response.json();
+      const data = mapIds(await response.json());
 
       if (!response.ok) {
         throw new Error(data.message || 'Error en la petición');
@@ -82,7 +104,7 @@ async adjustStock(id: string, newStock: number, reason: string) {
 }
 
 async deductIngredients(recipeId: string, quantity: number, saleId: string) {
-  return this.request('/inventory/deduct', {
+  return this.request('/ingredients/deduct', {
     method: 'POST',
     body: JSON.stringify({ recipeId, quantity, saleId }),
   });
