@@ -1,5 +1,6 @@
 import { createSlice, PayloadAction, createAsyncThunk } from '@reduxjs/toolkit';
 import { consumeIngredients } from './inventorySlice';
+import { recordSale } from './accountingSlice';
 
 export interface CartItem {
   id: string;
@@ -52,10 +53,11 @@ export const processSale = createAsyncThunk(
     const state = getState() as {
       cart: CartState;
       recipes: { recipes: Array<{ productId: string; items: Array<{ ingredientId: string; quantity: number }> }> };
-      inventory: { ingredients: Array<{ id: string; stock: number; name: string }> };
+      inventory: { ingredients: Array<{ id: string; stock: number; name: string; costPerUnit?: number }> };
     };
     const { items } = state.cart;
     const saleId = `SALE-${Date.now()}`;
+    let totalCost = 0;
     
     // Verificar stock de ingredientes para todos los items
     for (const item of items) {
@@ -70,6 +72,8 @@ export const processSale = createAsyncThunk(
           if (!ingredient || ingredient.stock < needed) {
             throw new Error(`No hay suficiente stock para: ${item.name}`);
           }
+
+          totalCost += (ingredient.costPerUnit || 0) * needed;
         }
 
         dispatch(consumeIngredients({
@@ -80,6 +84,12 @@ export const processSale = createAsyncThunk(
         }));
       }
     }
+
+    dispatch(recordSale({
+      saleId,
+      revenue: state.cart.totals.total,
+      cogs: totalCost,
+    }));
     
     return { success: true, timestamp: new Date().toISOString(), saleId };
   }
