@@ -22,7 +22,7 @@ import {
   restockIngredient,
   adjustStock,
 } from '../store/inventorySlice';
-import { deleteProduct } from '../store/recipesSlice';
+import { deleteProduct, toggleProductActive } from '../store/recipesSlice';
 import { addJournalEntry } from '../store/accountingSlice';
 
 export const InventoryScreen: React.FC = () => {
@@ -265,7 +265,11 @@ export const InventoryScreen: React.FC = () => {
           <TouchableOpacity 
             style={[styles.productActionBtn, !item.isActive && styles.inactiveBtn]}
             onPress={() => {
-              // Toggle active
+              dispatch(toggleProductActive(item.id));
+              Alert.alert(
+                'Estado actualizado',
+                item.isActive ? `${item.name} ahora está inactivo` : `${item.name} ahora está activo`
+              );
             }}
           >
             <Ionicons name={item.isActive ? 'eye' : 'eye-off'} size={18} color={item.isActive ? '#27ae60' : '#8b6f4e'} />
