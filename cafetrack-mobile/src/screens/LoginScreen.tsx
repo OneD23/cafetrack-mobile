@@ -9,9 +9,11 @@ import {
   StatusBar,
   Alert,
   ActivityIndicator,
+  Modal,
 } from 'react-native';
 import { useDispatch, useSelector } from 'react-redux';
 import { loginUser } from '../store/authSlice';
+import { api } from '../api/client';
 
 const LoginScreen: React.FC = () => {
   const dispatch = useDispatch();
@@ -19,6 +21,14 @@ const LoginScreen: React.FC = () => {
   
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
+  const [showBootstrapModal, setShowBootstrapModal] = useState(false);
+  const [bootstrapForm, setBootstrapForm] = useState({
+    username: '',
+    email: '',
+    name: '',
+    password: '',
+  });
+  const [creatingAdmin, setCreatingAdmin] = useState(false);
 
   const handleLogin = async () => {
     if (!username || !password) {
@@ -30,6 +40,25 @@ const LoginScreen: React.FC = () => {
       await dispatch(loginUser({ username, password }) as any);
     } catch (error) {
       Alert.alert('Error', 'Credenciales inválidas');
+    }
+  };
+
+  const onBootstrapAdmin = async () => {
+    if (!bootstrapForm.username || !bootstrapForm.email || !bootstrapForm.name || !bootstrapForm.password) {
+      Alert.alert('Datos incompletos', 'Completa todos los campos para crear el admin');
+      return;
+    }
+
+    try {
+      setCreatingAdmin(true);
+      await api.bootstrapAdmin(bootstrapForm);
+      Alert.alert('Éxito', 'Admin inicial creado. Ya puedes iniciar sesión.');
+      setShowBootstrapModal(false);
+      setBootstrapForm({ username: '', email: '', name: '', password: '' });
+    } catch (error: any) {
+      Alert.alert('Error', error?.message || 'No fue posible crear el admin inicial');
+    } finally {
+      setCreatingAdmin(false);
     }
   };
 
@@ -78,10 +107,64 @@ const LoginScreen: React.FC = () => {
           </TouchableOpacity>
 
           <Text style={styles.hint}>
-            Usuario: admin | Contraseña: admin
+            Usa tus credenciales del backend
           </Text>
+
+          <TouchableOpacity onPress={() => setShowBootstrapModal(true)}>
+            <Text style={styles.bootstrapLink}>Configurar primer usuario</Text>
+          </TouchableOpacity>
         </View>
       </View>
+
+      <Modal visible={showBootstrapModal} transparent animationType="slide">
+        <View style={styles.modalBackdrop}>
+          <View style={styles.modalCard}>
+            <Text style={styles.modalTitle}>Crear admin inicial</Text>
+            <Text style={styles.modalDescription}>
+              Este formulario solo funcionará si no existen usuarios en el sistema.
+            </Text>
+            <TextInput
+              style={styles.modalInput}
+              placeholder="Nombre"
+              placeholderTextColor="#8b6f4e"
+              value={bootstrapForm.name}
+              onChangeText={(name) => setBootstrapForm((prev) => ({ ...prev, name }))}
+            />
+            <TextInput
+              style={styles.modalInput}
+              placeholder="Usuario"
+              placeholderTextColor="#8b6f4e"
+              value={bootstrapForm.username}
+              onChangeText={(username) => setBootstrapForm((prev) => ({ ...prev, username }))}
+              autoCapitalize="none"
+            />
+            <TextInput
+              style={styles.modalInput}
+              placeholder="Email"
+              placeholderTextColor="#8b6f4e"
+              value={bootstrapForm.email}
+              onChangeText={(email) => setBootstrapForm((prev) => ({ ...prev, email }))}
+              autoCapitalize="none"
+            />
+            <TextInput
+              style={styles.modalInput}
+              placeholder="Contraseña"
+              placeholderTextColor="#8b6f4e"
+              value={bootstrapForm.password}
+              onChangeText={(password) => setBootstrapForm((prev) => ({ ...prev, password }))}
+              secureTextEntry
+            />
+            <View style={styles.modalActions}>
+              <TouchableOpacity style={styles.cancelBtn} onPress={() => setShowBootstrapModal(false)}>
+                <Text style={styles.cancelBtnText}>Cerrar</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.confirmBtn} onPress={onBootstrapAdmin} disabled={creatingAdmin}>
+                <Text style={styles.confirmBtnText}>{creatingAdmin ? 'Creando...' : 'Crear admin'}</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 };
@@ -147,6 +230,74 @@ const styles = StyleSheet.create({
     textAlign: "center",
     marginTop: 20,
     fontSize: 12,
+  },
+  bootstrapLink: {
+    color: "#d4a574",
+    textAlign: "center",
+    marginTop: 12,
+    textDecorationLine: "underline",
+    fontSize: 13,
+  },
+  modalBackdrop: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.6)",
+    justifyContent: "center",
+    padding: 20,
+  },
+  modalCard: {
+    backgroundColor: "#1a0f0a",
+    borderRadius: 16,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: "#4a3428",
+  },
+  modalTitle: {
+    color: "#f5f1e8",
+    fontSize: 20,
+    fontWeight: "700",
+    marginBottom: 12,
+  },
+  modalDescription: {
+    color: "#d8c6b2",
+    marginBottom: 12,
+    fontSize: 13,
+  },
+  modalInput: {
+    backgroundColor: "#2c1810",
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    color: "#f5f1e8",
+    borderWidth: 1,
+    borderColor: "#4a3428",
+    marginBottom: 10,
+  },
+  modalActions: {
+    flexDirection: "row",
+    gap: 10,
+    marginTop: 8,
+  },
+  cancelBtn: {
+    flex: 1,
+    backgroundColor: "#3a2a20",
+    borderRadius: 10,
+    padding: 12,
+    alignItems: "center",
+  },
+  cancelBtnText: {
+    color: "#f5f1e8",
+    fontWeight: "700",
+  },
+  confirmBtn: {
+    flex: 1,
+    backgroundColor: "#d4a574",
+    borderRadius: 10,
+    padding: 12,
+    alignItems: "center",
+  },
+  confirmBtnText: {
+    color: "#1a0f0a",
+    fontWeight: "700",
   },
 });
 
