@@ -172,3 +172,57 @@ git rebase origin/main
 npm --prefix cafetrack-mobile run ts:check
 git push --force-with-lease
 ```
+
+---
+
+## Resolución rápida para conflictos actuales (RecipeModal, Inventory, Login, POS, store/index)
+
+Si GitHub te muestra conflicto en estos archivos:
+
+- `cafetrack-mobile/src/components/RecipeModal.tsx`
+- `cafetrack-mobile/src/screens/InventoryScreen.tsx`
+- `cafetrack-mobile/src/screens/LoginScreen.tsx`
+- `cafetrack-mobile/src/screens/POSScreen.tsx`
+- `cafetrack-mobile/src/store/index.ts`
+
+usa esta secuencia local (recomendada):
+
+```bash
+git fetch origin
+git checkout <tu-rama>
+git rebase origin/main
+```
+
+Luego, al resolver, **conserva** estos puntos clave:
+
+1. `RecipeModal.tsx`
+   - Debe tener `entityId(...)` para soportar `id/_id`.
+   - Debe usar `onBootstrapAdmin` solo en Login (no en POS/Recipe).
+   - Debe incluir `recipeImage` en estado/guardado.
+
+2. `InventoryScreen.tsx`
+   - `handleDeleteProduct` con confirmación web (`window.confirm`) + dispatch `deleteProduct`.
+
+3. `LoginScreen.tsx`
+   - Solo una declaración de handler bootstrap (`onBootstrapAdmin`).
+
+4. `POSScreen.tsx`
+   - Barra de caja (`Abrir caja / Cerrar caja`).
+   - Bloqueo de venta si caja cerrada.
+
+5. `store/index.ts`
+   - Debe registrar `cashRegister` reducer junto con `accounting`, `apiSlice`, etc.
+
+Finaliza así:
+
+```bash
+git add cafetrack-mobile/src/components/RecipeModal.tsx \
+        cafetrack-mobile/src/screens/InventoryScreen.tsx \
+        cafetrack-mobile/src/screens/LoginScreen.tsx \
+        cafetrack-mobile/src/screens/POSScreen.tsx \
+        cafetrack-mobile/src/store/index.ts
+git rebase --continue
+npm --prefix cafetrack-mobile run check:screens
+npm --prefix cafetrack-mobile run ts:check
+git push --force-with-lease
+```
