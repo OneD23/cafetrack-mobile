@@ -3,10 +3,14 @@
   "version": "2.0.0",
   "main": "node_modules/expo/AppEntry.js",
   "scripts": {
+    "prestart": "npm run check:screens",
     "start": "expo start",
+    "preandroid": "npm run check:screens",
     "android": "expo start --android",
+    "preios": "npm run check:screens",
     "ios": "expo start --ios",
-    "ts:check": "tsc --noEmit"
+    "ts:check": "tsc --noEmit",
+    "check:screens": "node scripts/validate-screen-integrity.js"
   },
   "dependencies": {
     "@expo/metro-runtime": "~4.0.1",
