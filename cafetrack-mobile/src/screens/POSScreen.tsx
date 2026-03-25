@@ -166,6 +166,17 @@ const POSScreen: React.FC = () => {
           <Text style={styles.statTotal}>${totals.total.toFixed(2)}</Text>
         </View>
       </View>
+      <View style={styles.cashBar}>
+        <Text style={styles.cashStatus}>
+          {cashRegister.isOpen ? `Caja abierta · Fondo: $${(cashRegister.openingAmount || 0).toFixed(2)}` : 'Caja cerrada'}
+        </Text>
+        <TouchableOpacity
+          style={[styles.cashBtn, cashRegister.isOpen ? styles.cashBtnClose : styles.cashBtnOpen]}
+          onPress={cashRegister.isOpen ? handleCloseRegister : handleOpenRegister}
+        >
+          <Text style={styles.cashBtnText}>{cashRegister.isOpen ? 'Cerrar caja' : 'Abrir caja'}</Text>
+        </TouchableOpacity>
+      </View>
 
       <View style={styles.searchContainer}>
         <Ionicons name="search" size={20} color="#8b6f4e" />
@@ -306,6 +317,40 @@ const styles = StyleSheet.create({
     color: "#d4a574",
     fontSize: 18,
     fontWeight: "bold",
+  },
+  cashBar: {
+    marginHorizontal: 16,
+    marginBottom: 8,
+    backgroundColor: "#2c1810",
+    borderColor: "#4a3428",
+    borderWidth: 1,
+    borderRadius: 12,
+    padding: 10,
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    gap: 10,
+  },
+  cashStatus: {
+    color: "#f5f1e8",
+    fontSize: 12,
+    flex: 1,
+  },
+  cashBtn: {
+    borderRadius: 8,
+    paddingVertical: 8,
+    paddingHorizontal: 10,
+  },
+  cashBtnOpen: {
+    backgroundColor: "#2e7d32",
+  },
+  cashBtnClose: {
+    backgroundColor: "#8d6e63",
+  },
+  cashBtnText: {
+    color: "#fff",
+    fontWeight: "700",
+    fontSize: 12,
   },
   searchContainer: {
     flexDirection: "row",
