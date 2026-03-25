@@ -214,8 +214,18 @@ const POSScreen: React.FC = () => {
           <View style={styles.emptyState}>
             <Text style={styles.emptyStateTitle}>No hay productos para mostrar</Text>
             <Text style={styles.emptyStateSubtitle}>
-              Verifica búsqueda, categorías o inventario disponible.
+              Filtro actual: {selectedCategory === "all" ? "todas las categorías" : selectedCategory}
+              {searchQuery ? ` · búsqueda: "${searchQuery}"` : ""}
             </Text>
+            <TouchableOpacity
+              style={styles.resetFiltersBtn}
+              onPress={() => {
+                setSelectedCategory("all");
+                setSearchQuery("");
+              }}
+            >
+              <Text style={styles.resetFiltersText}>Mostrar todos</Text>
+            </TouchableOpacity>
           </View>
         }
         renderItem={({ item }) => (
@@ -382,6 +392,17 @@ const styles = StyleSheet.create({
     color: "#8b6f4e",
     fontSize: 13,
     textAlign: "center",
+  },
+  resetFiltersBtn: {
+    marginTop: 12,
+    backgroundColor: "#d4a574",
+    borderRadius: 10,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+  },
+  resetFiltersText: {
+    color: "#1a0f0a",
+    fontWeight: "700",
   },
   productCard: {
     flex: 1,

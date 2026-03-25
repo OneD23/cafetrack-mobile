@@ -10,6 +10,7 @@ import {
   TextInput,
   Modal,
   Image,
+  Platform,
 } from 'react-native';
 import { useSelector, useDispatch } from 'react-redux';
 import { Ionicons } from '@expo/vector-icons';
@@ -104,26 +105,28 @@ export const InventoryScreen: React.FC = () => {
   };
 
   const handleDeleteProduct = (product: any) => {
-    Alert.alert(
-      'Eliminar Producto',
-      `¿Eliminar "${product.name}" y su receta?`,
-      [
-        { text: 'Cancelar', style: 'cancel' },
-        {
-          text: 'Eliminar',
-          style: 'destructive',
-          onPress: () => {
-            const productId = String(product?.id ?? product?._id ?? "");
-            if (!productId) {
-              Alert.alert("Error", "No se pudo identificar el producto a eliminar");
-              return;
-            }
-            dispatch(deleteProduct(productId));
-            Alert.alert("Eliminado", `${product.name} fue eliminado correctamente.`);
-          },
-        },
-      ]
-    );
+    const productId = String(product?.id ?? product?._id ?? '');
+    if (!productId) {
+      Alert.alert('Error', 'No se pudo identificar el producto a eliminar');
+      return;
+    }
+
+    const confirmDelete = () => {
+      dispatch(deleteProduct(productId));
+      Alert.alert('Eliminado', `${product.name} fue eliminado correctamente.`);
+    };
+
+    if (Platform.OS === 'web' && typeof window !== 'undefined') {
+      if (window.confirm(`¿Eliminar "${product.name}" y su receta?`)) {
+        confirmDelete();
+      }
+      return;
+    }
+
+    Alert.alert('Eliminar Producto', `¿Eliminar "${product.name}" y su receta?`, [
+      { text: 'Cancelar', style: 'cancel' },
+      { text: 'Eliminar', style: 'destructive', onPress: confirmDelete },
+    ]);
   };
 
   const getRecipeForProduct = (productId: string) => {
