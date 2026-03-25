@@ -15,14 +15,12 @@ import { useSelector, useDispatch } from "react-redux";
 import { Ionicons } from "@expo/vector-icons";
 import { addToCart, clearCart, processSale, removeFromCart, setDiscount, updateQuantity } from "../store/cartSlice";
 import { PaymentModal } from "../components/PaymentModal";
-import { closeRegister, openRegister, recordCashSale } from "../store/cashRegisterSlice";
 
 const POSScreen: React.FC = () => {
   const dispatch = useDispatch();
   const { items: cartItems, totals, processingSale } = useSelector((state: any) => state.cart);
   const { products, recipes } = useSelector((state: any) => state.recipes);
   const { ingredients } = useSelector((state: any) => state.inventory);
-  const cashRegister = useSelector((state: any) => state.cashRegister);
   
   const [selectedCategory, setSelectedCategory] = useState("all");
   const [searchQuery, setSearchQuery] = useState("");
@@ -37,34 +35,24 @@ const POSScreen: React.FC = () => {
 
   const availableProducts = useMemo(() => {
     return products.map((product: any) => {
-      const productId = String(product?.id ?? product?._id ?? '');
-      const recipe = recipes.find((r: any) => String(r.productId) === productId);
+      const recipe = recipes.find((r: any) => r.productId === product.id);
       if (!recipe) {
-        return { ...product, stock: 9999, stockUnknown: true };
+        return { ...product, stock: 9999 };
       }
 
       if (!hasInventoryData) {
-        return { ...product, stock: 9999, stockUnknown: true };
+        return { ...product, stock: 9999 };
       }
 
-      const matchedItems = recipe.items.filter((ri: any) =>
-        ingredients.some((ing: any) => String(ing.id ?? ing._id) === String(ri.ingredientId))
-      );
-
-      if (!matchedItems.length) {
-        return { ...product, stock: 9999, stockUnknown: true };
-      }
-
-      const maxFromIngredients = matchedItems.reduce((minQty: number, ri: any) => {
-        const ingredient = ingredients.find((ing: any) => String(ing.id ?? ing._id) === String(ri.ingredientId));
-        const possible = ingredient ? Math.floor(ingredient.stock / ri.quantity) : Number.MAX_SAFE_INTEGER;
+      const maxFromIngredients = recipe.items.reduce((minQty: number, ri: any) => {
+        const ingredient = ingredients.find((ing: any) => ing.id === ri.ingredientId);
+        const possible = ingredient ? Math.floor(ingredient.stock / ri.quantity) : 0;
         return Math.min(minQty, possible);
       }, Number.MAX_SAFE_INTEGER);
 
       return {
         ...product,
         stock: Number.isFinite(maxFromIngredients) ? maxFromIngredients : 0,
-        stockUnknown: false,
       };
     });
   }, [products, recipes, ingredients, hasInventoryData]);
@@ -73,9 +61,8 @@ const POSScreen: React.FC = () => {
     return availableProducts.filter((p: any) => {
       const matchesCategory = selectedCategory === "all" || p.category === selectedCategory;
       const matchesSearch = p.name.toLowerCase().includes(searchQuery.toLowerCase());
-      const hasStock = p.stockUnknown ? true : (hasInventoryData ? p.stock > 0 : true);
-      const isVisible = p.isActive !== false;
-      return isVisible && matchesCategory && matchesSearch && hasStock;
+      const hasStock = hasInventoryData ? p.stock > 0 : true;
+      return p.isActive && matchesCategory && matchesSearch && hasStock;
     });
   }, [availableProducts, selectedCategory, searchQuery, hasInventoryData]);
 
@@ -87,41 +74,7 @@ const POSScreen: React.FC = () => {
     dispatch(addToCart(product));
   };
 
-  const requestAmount = (title: string, message: string): number | null => {
-    if (Platform.OS === "web" && typeof window !== "undefined") {
-      const raw = window.prompt(message, "0");
-      if (raw === null) return null;
-      const parsed = parseFloat(raw);
-      return Number.isFinite(parsed) && parsed >= 0 ? parsed : null;
-    }
-
-    Alert.alert(title, 'En móvil nativo se abrirá caja con monto 0 por ahora.');
-    return 0;
-  };
-
-  const handleOpenRegister = () => {
-    const amount = requestAmount("Apertura de caja", "Monto inicial en caja:");
-    if (amount === null) {
-      Alert.alert("Dato inválido", "Ingresa un monto válido para abrir caja.");
-      return;
-    }
-    dispatch(openRegister({ openingAmount: amount }));
-  };
-
-  const handleCloseRegister = () => {
-    const amount = requestAmount("Cierre de caja", "Monto contado al cierre:");
-    if (amount === null) {
-      Alert.alert("Dato inválido", "Ingresa un monto válido para cerrar caja.");
-      return;
-    }
-    dispatch(closeRegister({ closingAmount: amount }));
-  };
-
   const handleCompleteSale = async () => {
-    if (!cashRegister.isOpen) {
-      Alert.alert("Caja cerrada", "Debes abrir caja antes de procesar ventas.");
-      return;
-    }
     if (!cartItems.length) {
       Alert.alert("Carrito vacío", "Agrega al menos un producto para continuar.");
       return;
@@ -148,9 +101,6 @@ const POSScreen: React.FC = () => {
           customerName: paymentData.customer?.name,
         }) as any
       ).unwrap();
-      if (paymentData.method === "cash") {
-        dispatch(recordCashSale({ saleId: result.saleId, amount: saleTotals.total }));
-      }
       Alert.alert("Venta completada", "Se descontaron ingredientes del inventario.");
       setShowPaymentModal(false);
       printInvoice(result.saleId, saleItems, saleTotals);
@@ -265,18 +215,8 @@ const POSScreen: React.FC = () => {
           <View style={styles.emptyState}>
             <Text style={styles.emptyStateTitle}>No hay productos para mostrar</Text>
             <Text style={styles.emptyStateSubtitle}>
-              Filtro actual: {selectedCategory === "all" ? "todas las categorías" : selectedCategory}
-              {searchQuery ? ` · búsqueda: "${searchQuery}"` : ""}
+              Verifica búsqueda, categorías o inventario disponible.
             </Text>
-            <TouchableOpacity
-              style={styles.resetFiltersBtn}
-              onPress={() => {
-                setSelectedCategory("all");
-                setSearchQuery("");
-              }}
-            >
-              <Text style={styles.resetFiltersText}>Mostrar todos</Text>
-            </TouchableOpacity>
           </View>
         }
         renderItem={({ item }) => (
@@ -288,7 +228,7 @@ const POSScreen: React.FC = () => {
             <Text style={styles.productName}>{item.name}</Text>
             <Text style={styles.productPrice}>${item.price.toFixed(2)}</Text>
             <Text style={styles.productStock}>
-              Stock: {item.stockUnknown || !hasInventoryData ? "—" : item.stock}
+              Stock: {hasInventoryData ? item.stock : "—"}
             </Text>
           </TouchableOpacity>
         )}
@@ -477,17 +417,6 @@ const styles = StyleSheet.create({
     color: "#8b6f4e",
     fontSize: 13,
     textAlign: "center",
-  },
-  resetFiltersBtn: {
-    marginTop: 12,
-    backgroundColor: "#d4a574",
-    borderRadius: 10,
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-  },
-  resetFiltersText: {
-    color: "#1a0f0a",
-    fontWeight: "700",
   },
   productCard: {
     flex: 1,

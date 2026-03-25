@@ -29,12 +29,8 @@ export const RecipeModal: React.FC<RecipeModalProps> = ({
   const dispatch = useDispatch();
   const ingredients = useSelector((state: any) => state.inventory.ingredients);
   const recipes = useSelector((state: any) => state.recipes.recipes);
-  const entityId = (entity: any) => String(entity?.id ?? entity?._id ?? '');
   const existingRecipe = useMemo(
-    () => {
-      const editingId = entityId(editingProduct);
-      return recipes.find((r: any) => String(r.productId) === editingId);
-    },
+    () => recipes.find((r: any) => r.productId === editingProduct?.id),
     [recipes, editingProduct]
   );
   
@@ -42,7 +38,6 @@ export const RecipeModal: React.FC<RecipeModalProps> = ({
   const [price, setPrice] = useState(editingProduct?.price?.toString() || '');
   const [category, setCategory] = useState(editingProduct?.category || 'coffee');
   const [productImage, setProductImage] = useState(editingProduct?.image || '');
-  const [recipeImage, setRecipeImage] = useState(existingRecipe?.image || '');
   const [selectedIngredients, setSelectedIngredients] = useState<RecipeItem[]>(existingRecipe?.items || []);
   const [prepTime, setPrepTime] = useState(existingRecipe?.preparationTime?.toString() || '2');
 
@@ -106,38 +101,27 @@ export const RecipeModal: React.FC<RecipeModalProps> = ({
       return;
     }
 
-    const payloadProduct = {
-      name,
-      price: parseFloat(price),
-      category,
-      icon: categories.find(c => c.id === category)?.icon || '☕',
-      image: productImage || undefined,
-      isActive: true,
-      hasRecipe: true,
-    };
-
-    const payloadRecipe = {
-      items: validItems,
-      preparationTime: parseInt(prepTime) || 2,
-      image: recipeImage || undefined,
-    };
-
-    const editingId = entityId(editingProduct);
-    if (editingProduct && editingId) {
-      dispatch(updateProduct({ id: editingId, ...payloadProduct }));
-      dispatch(updateRecipe({ productId: editingId, ...payloadRecipe }));
-    } else {
-      dispatch(addProduct({
-        product: payloadProduct,
-        recipe: payloadRecipe,
-      }));
-    }
+    dispatch(addProduct({
+      product: {
+        name,
+        price: parseFloat(price),
+        category,
+        icon: categories.find(c => c.id === category)?.icon || '☕',
+        image: productImage || undefined,
+        isActive: true,
+        hasRecipe: true,
+      },
+      recipe: {
+        items: validItems,
+        preparationTime: parseInt(prepTime) || 2,
+        image: recipeImage || undefined,
+      },
+    }));
 
     // Reset
     setName('');
     setPrice('');
     setProductImage('');
-    setRecipeImage('');
     setSelectedIngredients([]);
     onClose();
   };
@@ -223,16 +207,6 @@ export const RecipeModal: React.FC<RecipeModalProps> = ({
               </TouchableOpacity>
             </View>
 
-            <Text style={styles.label}>Imagen de receta (opcional)</Text>
-            <TextInput
-              style={styles.input}
-              value={recipeImage}
-              onChangeText={setRecipeImage}
-              placeholder="https://.../receta.jpg"
-              placeholderTextColor="#8b6f4e"
-              autoCapitalize="none"
-            />
-
             {/* Tiempo de preparación */}
             <Text style={styles.label}>Tiempo de preparación (min)</Text>
             <TextInput
@@ -261,15 +235,15 @@ export const RecipeModal: React.FC<RecipeModalProps> = ({
                   </View>
                 </TouchableOpacity>
                 
-                {selectedIngredients.find(i => String(i.ingredientId) === entityId(ing)) && (
+                {selectedIngredients.find(i => i.ingredientId === ing.id) && (
                   <View style={styles.qtyInputWrap}>
                     <TextInput
                       style={styles.qtyInput}
                       placeholder={`0 ${ing.unit}`}
                       placeholderTextColor="#8b6f4e"
                       keyboardType="decimal-pad"
-                      value={(selectedIngredients.find(i => String(i.ingredientId) === entityId(ing))?.quantity || '').toString()}
-                      onChangeText={(text) => updateQuantity(entityId(ing), text)}
+                      value={(selectedIngredients.find(i => i.ingredientId === ing.id)?.quantity || '').toString()}
+                      onChangeText={(text) => updateQuantity(ing.id, text)}
                     />
                     <Text style={styles.qtyUnitBadge}>{ing.unit}</Text>
                   </View>
