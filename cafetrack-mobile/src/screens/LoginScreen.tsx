@@ -107,6 +107,25 @@ const LoginScreen: React.FC = () => {
     }
   };
 
+  const onBootstrapAdmin = async () => {
+    if (!bootstrapForm.username || !bootstrapForm.email || !bootstrapForm.name || !bootstrapForm.password) {
+      Alert.alert('Datos incompletos', 'Completa todos los campos para crear el admin');
+      return;
+    }
+
+    try {
+      setCreatingAdmin(true);
+      await api.bootstrapAdmin(bootstrapForm);
+      Alert.alert('Éxito', 'Admin inicial creado. Ya puedes iniciar sesión.');
+      setShowBootstrapModal(false);
+      setBootstrapForm({ username: '', email: '', name: '', password: '' });
+    } catch (error: any) {
+      Alert.alert('Error', error?.message || 'No fue posible crear el admin inicial');
+    } finally {
+      setCreatingAdmin(false);
+    }
+  };
+
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="light-content" backgroundColor="#1a0f0a" />
