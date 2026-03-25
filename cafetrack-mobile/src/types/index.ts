@@ -22,6 +22,7 @@ export interface Recipe {
   items: RecipeItem[];
   preparationTime?: number; // minutos
   instructions?: string;
+  image?: string;
 }
 
 // Producto terminado (lo que se vende)
