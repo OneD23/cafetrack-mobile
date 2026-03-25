@@ -35,34 +35,24 @@ const POSScreen: React.FC = () => {
 
   const availableProducts = useMemo(() => {
     return products.map((product: any) => {
-      const productId = String(product?.id ?? product?._id ?? '');
-      const recipe = recipes.find((r: any) => String(r.productId) === productId);
+      const recipe = recipes.find((r: any) => r.productId === product.id);
       if (!recipe) {
-        return { ...product, stock: 9999, stockUnknown: true };
+        return { ...product, stock: 9999 };
       }
 
       if (!hasInventoryData) {
-        return { ...product, stock: 9999, stockUnknown: true };
+        return { ...product, stock: 9999 };
       }
 
-      const matchedItems = recipe.items.filter((ri: any) =>
-        ingredients.some((ing: any) => String(ing.id ?? ing._id) === String(ri.ingredientId))
-      );
-
-      if (!matchedItems.length) {
-        return { ...product, stock: 9999, stockUnknown: true };
-      }
-
-      const maxFromIngredients = matchedItems.reduce((minQty: number, ri: any) => {
-        const ingredient = ingredients.find((ing: any) => String(ing.id ?? ing._id) === String(ri.ingredientId));
-        const possible = ingredient ? Math.floor(ingredient.stock / ri.quantity) : Number.MAX_SAFE_INTEGER;
+      const maxFromIngredients = recipe.items.reduce((minQty: number, ri: any) => {
+        const ingredient = ingredients.find((ing: any) => ing.id === ri.ingredientId);
+        const possible = ingredient ? Math.floor(ingredient.stock / ri.quantity) : 0;
         return Math.min(minQty, possible);
       }, Number.MAX_SAFE_INTEGER);
 
       return {
         ...product,
         stock: Number.isFinite(maxFromIngredients) ? maxFromIngredients : 0,
-        stockUnknown: false,
       };
     });
   }, [products, recipes, ingredients, hasInventoryData]);
@@ -71,7 +61,7 @@ const POSScreen: React.FC = () => {
     return availableProducts.filter((p: any) => {
       const matchesCategory = selectedCategory === "all" || p.category === selectedCategory;
       const matchesSearch = p.name.toLowerCase().includes(searchQuery.toLowerCase());
-      const hasStock = p.stockUnknown ? true : (hasInventoryData ? p.stock > 0 : true);
+      const hasStock = hasInventoryData ? p.stock > 0 : true;
       return p.isActive && matchesCategory && matchesSearch && hasStock;
     });
   }, [availableProducts, selectedCategory, searchQuery, hasInventoryData]);
@@ -214,18 +204,8 @@ const POSScreen: React.FC = () => {
           <View style={styles.emptyState}>
             <Text style={styles.emptyStateTitle}>No hay productos para mostrar</Text>
             <Text style={styles.emptyStateSubtitle}>
-              Filtro actual: {selectedCategory === "all" ? "todas las categorías" : selectedCategory}
-              {searchQuery ? ` · búsqueda: "${searchQuery}"` : ""}
+              Verifica búsqueda, categorías o inventario disponible.
             </Text>
-            <TouchableOpacity
-              style={styles.resetFiltersBtn}
-              onPress={() => {
-                setSelectedCategory("all");
-                setSearchQuery("");
-              }}
-            >
-              <Text style={styles.resetFiltersText}>Mostrar todos</Text>
-            </TouchableOpacity>
           </View>
         }
         renderItem={({ item }) => (
@@ -237,7 +217,7 @@ const POSScreen: React.FC = () => {
             <Text style={styles.productName}>{item.name}</Text>
             <Text style={styles.productPrice}>${item.price.toFixed(2)}</Text>
             <Text style={styles.productStock}>
-              Stock: {item.stockUnknown || !hasInventoryData ? "—" : item.stock}
+              Stock: {hasInventoryData ? item.stock : "—"}
             </Text>
           </TouchableOpacity>
         )}
@@ -392,17 +372,6 @@ const styles = StyleSheet.create({
     color: "#8b6f4e",
     fontSize: 13,
     textAlign: "center",
-  },
-  resetFiltersBtn: {
-    marginTop: 12,
-    backgroundColor: "#d4a574",
-    borderRadius: 10,
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-  },
-  resetFiltersText: {
-    color: "#1a0f0a",
-    fontWeight: "700",
   },
   productCard: {
     flex: 1,

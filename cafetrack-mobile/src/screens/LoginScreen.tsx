@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState } from "react";
 import {
   View,
   Text,
@@ -10,36 +10,81 @@ import {
   Alert,
   ActivityIndicator,
   Modal,
-} from 'react-native';
-import { useDispatch, useSelector } from 'react-redux';
-import { loginUser } from '../store/authSlice';
-import { api } from '../api/client';
+} from "react-native";
+import { useDispatch, useSelector } from "react-redux";
+import { loginUser } from "../store/authSlice";
+import api from "../api/client";
 
 const LoginScreen: React.FC = () => {
   const dispatch = useDispatch();
   const { isLoading } = useSelector((state: any) => state.auth);
-  
-  const [username, setUsername] = useState('');
-  const [password, setPassword] = useState('');
+
+  const [username, setUsername] = useState("");
+  const [password, setPassword] = useState("");
   const [showBootstrapModal, setShowBootstrapModal] = useState(false);
-  const [bootstrapForm, setBootstrapForm] = useState({
-    username: '',
-    email: '',
-    name: '',
-    password: '',
-  });
   const [creatingAdmin, setCreatingAdmin] = useState(false);
+  const [bootstrapForm, setBootstrapForm] = useState({
+    username: "",
+    email: "",
+    name: "",
+    password: "",
+  });
 
   const handleLogin = async () => {
     if (!username || !password) {
-      Alert.alert('Error', 'Por favor ingresa usuario y contraseña');
+      Alert.alert("Error", "Por favor ingresa usuario y contraseña");
       return;
     }
 
     try {
       await dispatch(loginUser({ username, password }) as any);
-    } catch (error) {
-      Alert.alert('Error', 'Credenciales inválidas');
+    } catch {
+      Alert.alert("Error", "Credenciales inválidas");
+    }
+  };
+
+  const handleBootstrapAdmin = async () => {
+    const { username, email, name, password } = bootstrapForm;
+
+    if (!username || !email || !name || !password) {
+      Alert.alert("Datos incompletos", "Completa todos los campos para crear el admin");
+      return;
+    }
+
+    try {
+      setCreatingAdmin(true);
+      await api.bootstrapAdmin(bootstrapForm);
+      Alert.alert("Éxito", "Admin inicial creado. Ya puedes iniciar sesión.");
+      setShowBootstrapModal(false);
+      setBootstrapForm({
+        username: "",
+        email: "",
+        name: "",
+        password: "",
+      });
+    } catch (error: any) {
+      Alert.alert("Error", error?.message || "No fue posible crear el admin inicial");
+    } finally {
+      setCreatingAdmin(false);
+    }
+  };
+
+  const onBootstrapAdmin = async () => {
+    if (!bootstrapForm.username || !bootstrapForm.email || !bootstrapForm.name || !bootstrapForm.password) {
+      Alert.alert('Datos incompletos', 'Completa todos los campos para crear el admin');
+      return;
+    }
+
+    try {
+      setCreatingAdmin(true);
+      await api.bootstrapAdmin(bootstrapForm);
+      Alert.alert('Éxito', 'Admin inicial creado. Ya puedes iniciar sesión.');
+      setShowBootstrapModal(false);
+      setBootstrapForm({ username: '', email: '', name: '', password: '' });
+    } catch (error: any) {
+      Alert.alert('Error', error?.message || 'No fue posible crear el admin inicial');
+    } finally {
+      setCreatingAdmin(false);
     }
   };
 
@@ -64,8 +109,8 @@ const LoginScreen: React.FC = () => {
 
   return (
     <SafeAreaView style={styles.container}>
-      <StatusBar barStyle="light-content" />
-      
+      <StatusBar barStyle="light-content" backgroundColor="#1a0f0a" />
+
       <View style={styles.content}>
         <View style={styles.logoContainer}>
           <Text style={styles.logoEmoji}>☕</Text>
@@ -83,7 +128,7 @@ const LoginScreen: React.FC = () => {
             autoCapitalize="none"
             editable={!isLoading}
           />
-          
+
           <TextInput
             style={styles.input}
             placeholder="Contraseña"
@@ -94,8 +139,8 @@ const LoginScreen: React.FC = () => {
             editable={!isLoading}
           />
 
-          <TouchableOpacity 
-            style={[styles.button, isLoading && styles.buttonDisabled]} 
+          <TouchableOpacity
+            style={[styles.button, isLoading && styles.buttonDisabled]}
             onPress={handleLogin}
             disabled={isLoading}
           >
@@ -106,9 +151,7 @@ const LoginScreen: React.FC = () => {
             )}
           </TouchableOpacity>
 
-          <Text style={styles.hint}>
-            Usa tus credenciales del backend
-          </Text>
+          <Text style={styles.hint}>Usa tus credenciales del backend</Text>
 
           <TouchableOpacity onPress={() => setShowBootstrapModal(true)}>
             <Text style={styles.bootstrapLink}>Configurar primer usuario</Text>
@@ -123,43 +166,68 @@ const LoginScreen: React.FC = () => {
             <Text style={styles.modalDescription}>
               Este formulario solo funcionará si no existen usuarios en el sistema.
             </Text>
+
             <TextInput
               style={styles.modalInput}
               placeholder="Nombre"
               placeholderTextColor="#8b6f4e"
               value={bootstrapForm.name}
-              onChangeText={(name) => setBootstrapForm((prev) => ({ ...prev, name }))}
+              onChangeText={(name) =>
+                setBootstrapForm((prev) => ({ ...prev, name }))
+              }
             />
+
             <TextInput
               style={styles.modalInput}
               placeholder="Usuario"
               placeholderTextColor="#8b6f4e"
               value={bootstrapForm.username}
-              onChangeText={(username) => setBootstrapForm((prev) => ({ ...prev, username }))}
+              onChangeText={(value) =>
+                setBootstrapForm((prev) => ({ ...prev, username: value }))
+              }
               autoCapitalize="none"
             />
+
             <TextInput
               style={styles.modalInput}
               placeholder="Email"
               placeholderTextColor="#8b6f4e"
               value={bootstrapForm.email}
-              onChangeText={(email) => setBootstrapForm((prev) => ({ ...prev, email }))}
+              onChangeText={(value) =>
+                setBootstrapForm((prev) => ({ ...prev, email: value }))
+              }
               autoCapitalize="none"
+              keyboardType="email-address"
             />
+
             <TextInput
               style={styles.modalInput}
               placeholder="Contraseña"
               placeholderTextColor="#8b6f4e"
               value={bootstrapForm.password}
-              onChangeText={(password) => setBootstrapForm((prev) => ({ ...prev, password }))}
+              onChangeText={(value) =>
+                setBootstrapForm((prev) => ({ ...prev, password: value }))
+              }
               secureTextEntry
             />
+
             <View style={styles.modalActions}>
-              <TouchableOpacity style={styles.cancelBtn} onPress={() => setShowBootstrapModal(false)}>
+              <TouchableOpacity
+                style={styles.cancelBtn}
+                onPress={() => setShowBootstrapModal(false)}
+                disabled={creatingAdmin}
+              >
                 <Text style={styles.cancelBtnText}>Cerrar</Text>
               </TouchableOpacity>
-              <TouchableOpacity style={styles.confirmBtn} onPress={onBootstrapAdmin} disabled={creatingAdmin}>
-                <Text style={styles.confirmBtnText}>{creatingAdmin ? 'Creando...' : 'Crear admin'}</Text>
+
+              <TouchableOpacity
+                style={[styles.confirmBtn, creatingAdmin && styles.buttonDisabled]}
+                onPress={handleBootstrapAdmin}
+                disabled={creatingAdmin}
+              >
+                <Text style={styles.confirmBtnText}>
+                  {creatingAdmin ? "Creando..." : "Crear admin"}
+                </Text>
               </TouchableOpacity>
             </View>
           </View>
