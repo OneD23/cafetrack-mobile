@@ -6,7 +6,8 @@
     "start": "expo start",
     "android": "expo start --android",
     "ios": "expo start --ios",
-    "ts:check": "tsc --noEmit"
+    "ts:check": "tsc --noEmit",
+    "check:screens": "node scripts/validate-screen-integrity.js"
   },
   "dependencies": {
     "@expo/metro-runtime": "~4.0.1",

@@ -100,6 +100,8 @@ const initialState: RecipesState = {
   ],
 };
 
+const getEntityId = (entity: any) => String(entity?.id ?? entity?._id ?? '');
+
 const recipesSlice = createSlice({
   name: 'recipes',
   initialState,
@@ -130,7 +132,7 @@ const recipesSlice = createSlice({
     
     // Actualizar producto
     updateProduct: (state, action: PayloadAction<Partial<Product> & { id: string }>) => {
-      const index = state.products.findIndex(p => p.id === action.payload.id);
+      const index = state.products.findIndex((p: any) => getEntityId(p) === String(action.payload.id));
       if (index !== -1) {
         state.products[index] = { ...state.products[index], ...action.payload };
       }
@@ -138,10 +140,11 @@ const recipesSlice = createSlice({
     
     // Eliminar producto y su receta
     deleteProduct: (state, action: PayloadAction<string>) => {
-      const product = state.products.find(p => p.id === action.payload);
+      const product = state.products.find((p: any) => getEntityId(p) === String(action.payload));
       if (product) {
-        state.products = state.products.filter(p => p.id !== action.payload);
-        state.recipes = state.recipes.filter(r => r.productId !== action.payload);
+        const targetId = getEntityId(product);
+        state.products = state.products.filter((p: any) => getEntityId(p) !== targetId);
+        state.recipes = state.recipes.filter((r: any) => String(r.productId) !== targetId);
       }
     },
     
@@ -160,7 +163,7 @@ const recipesSlice = createSlice({
     
     // Toggle producto activo/inactivo
     toggleProductActive: (state, action: PayloadAction<string>) => {
-      const product = state.products.find(p => p.id === action.payload);
+      const product = state.products.find((p: any) => getEntityId(p) === String(action.payload));
       if (product) {
         product.isActive = !product.isActive;
       }

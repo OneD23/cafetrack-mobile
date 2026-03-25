@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import {
   View,
   Text,
@@ -8,11 +8,12 @@ import {
   TextInput,
   ScrollView,
   Alert,
+  Platform,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSelector, useDispatch } from 'react-redux';
 import { Ingredient, RecipeItem } from '../types';
-import { addProduct, updateRecipe } from '../store/recipesSlice';
+import { addProduct, updateProduct, updateRecipe } from '../store/recipesSlice';
 
 interface RecipeModalProps {
   visible: boolean;
@@ -27,12 +28,23 @@ export const RecipeModal: React.FC<RecipeModalProps> = ({
 }) => {
   const dispatch = useDispatch();
   const ingredients = useSelector((state: any) => state.inventory.ingredients);
+  const recipes = useSelector((state: any) => state.recipes.recipes);
+  const entityId = (entity: any) => String(entity?.id ?? entity?._id ?? '');
+  const existingRecipe = useMemo(
+    () => {
+      const editingId = entityId(editingProduct);
+      return recipes.find((r: any) => String(r.productId) === editingId);
+    },
+    [recipes, editingProduct]
+  );
   
   const [name, setName] = useState(editingProduct?.name || '');
   const [price, setPrice] = useState(editingProduct?.price?.toString() || '');
   const [category, setCategory] = useState(editingProduct?.category || 'coffee');
-  const [selectedIngredients, setSelectedIngredients] = useState<RecipeItem[]>([]);
-  const [prepTime, setPrepTime] = useState('2');
+  const [productImage, setProductImage] = useState(editingProduct?.image || '');
+  const [recipeImage, setRecipeImage] = useState(existingRecipe?.image || '');
+  const [selectedIngredients, setSelectedIngredients] = useState<RecipeItem[]>(existingRecipe?.items || []);
+  const [prepTime, setPrepTime] = useState(existingRecipe?.preparationTime?.toString() || '2');
 
   const categories = [
     { id: 'coffee', name: 'Café', icon: '☕' },
@@ -42,11 +54,12 @@ export const RecipeModal: React.FC<RecipeModalProps> = ({
   ];
 
   const toggleIngredient = (ingredient: Ingredient) => {
-    const exists = selectedIngredients.find(i => i.ingredientId === ingredient.id);
+    const ingId = entityId(ingredient);
+    const exists = selectedIngredients.find(i => String(i.ingredientId) === ingId);
     if (exists) {
-      setSelectedIngredients(selectedIngredients.filter(i => i.ingredientId !== ingredient.id));
+      setSelectedIngredients(selectedIngredients.filter(i => String(i.ingredientId) !== ingId));
     } else {
-      setSelectedIngredients([...selectedIngredients, { ingredientId: ingredient.id, quantity: 0 }]);
+      setSelectedIngredients([...selectedIngredients, { ingredientId: ingId, quantity: 0 }]);
     }
   };
 
@@ -56,6 +69,29 @@ export const RecipeModal: React.FC<RecipeModalProps> = ({
         ? { ...item, quantity: parseFloat(qty) || 0 }
         : item
     ));
+  };
+
+  const pickImageFromDevice = () => {
+    if (Platform.OS !== 'web') {
+      Alert.alert('No disponible', 'En móvil nativo usa por ahora un link de imagen.');
+      return;
+    }
+
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = 'image/*';
+    input.onchange = () => {
+      const file = input.files?.[0];
+      if (!file) return;
+
+      const reader = new FileReader();
+      reader.onload = () => {
+        const result = typeof reader.result === 'string' ? reader.result : '';
+        setProductImage(result);
+      };
+      reader.readAsDataURL(file);
+    };
+    input.click();
   };
 
   const handleSave = () => {
@@ -70,31 +106,45 @@ export const RecipeModal: React.FC<RecipeModalProps> = ({
       return;
     }
 
-    dispatch(addProduct({
-      product: {
-        name,
-        price: parseFloat(price),
-        category,
-        icon: categories.find(c => c.id === category)?.icon || '☕',
-        isActive: true,
-        hasRecipe: true,
-      },
-      recipe: {
-        items: validItems,
-        preparationTime: parseInt(prepTime) || 2,
-      },
-    }));
+    const payloadProduct = {
+      name,
+      price: parseFloat(price),
+      category,
+      icon: categories.find(c => c.id === category)?.icon || '☕',
+      image: productImage || undefined,
+      isActive: true,
+      hasRecipe: true,
+    };
+
+    const payloadRecipe = {
+      items: validItems,
+      preparationTime: parseInt(prepTime) || 2,
+      image: recipeImage || undefined,
+    };
+
+    const editingId = entityId(editingProduct);
+    if (editingProduct && editingId) {
+      dispatch(updateProduct({ id: editingId, ...payloadProduct }));
+      dispatch(updateRecipe({ productId: editingId, ...payloadRecipe }));
+    } else {
+      dispatch(addProduct({
+        product: payloadProduct,
+        recipe: payloadRecipe,
+      }));
+    }
 
     // Reset
     setName('');
     setPrice('');
+    setProductImage('');
+    setRecipeImage('');
     setSelectedIngredients([]);
     onClose();
   };
 
   const calculateCost = () => {
     return selectedIngredients.reduce((total, item) => {
-      const ing = ingredients.find((i: any) => i.id === item.ingredientId);
+      const ing = ingredients.find((i: any) => entityId(i) === String(item.ingredientId));
       return total + (ing?.costPerUnit || 0) * item.quantity;
     }, 0);
   };
@@ -158,6 +208,31 @@ export const RecipeModal: React.FC<RecipeModalProps> = ({
               ))}
             </View>
 
+            <Text style={styles.label}>Imagen del producto (opcional)</Text>
+            <View style={styles.imageRow}>
+              <TextInput
+                style={[styles.input, styles.imageInput]}
+                value={productImage}
+                onChangeText={setProductImage}
+                placeholder="https://.../producto.jpg"
+                placeholderTextColor="#8b6f4e"
+                autoCapitalize="none"
+              />
+              <TouchableOpacity style={styles.uploadInlineBtn} onPress={pickImageFromDevice}>
+                <Text style={styles.uploadInlineBtnText}>📷</Text>
+              </TouchableOpacity>
+            </View>
+
+            <Text style={styles.label}>Imagen de receta (opcional)</Text>
+            <TextInput
+              style={styles.input}
+              value={recipeImage}
+              onChangeText={setRecipeImage}
+              placeholder="https://.../receta.jpg"
+              placeholderTextColor="#8b6f4e"
+              autoCapitalize="none"
+            />
+
             {/* Tiempo de preparación */}
             <Text style={styles.label}>Tiempo de preparación (min)</Text>
             <TextInput
@@ -168,7 +243,7 @@ export const RecipeModal: React.FC<RecipeModalProps> = ({
             />
 
             {/* Ingredientes */}
-            <Text style={styles.label}>Ingredientes</Text>
+            <Text style={styles.label}>Ingredientes y gramaje</Text>
             {ingredients.map((ing: Ingredient) => (
               <View key={ing.id} style={styles.ingredientRow}>
                 <TouchableOpacity 
@@ -176,7 +251,7 @@ export const RecipeModal: React.FC<RecipeModalProps> = ({
                   onPress={() => toggleIngredient(ing)}
                 >
                   <Ionicons 
-                    name={selectedIngredients.find(i => i.ingredientId === ing.id) ? 'checkbox' : 'square-outline'} 
+                    name={selectedIngredients.find(i => String(i.ingredientId) === entityId(ing)) ? 'checkbox' : 'square-outline'} 
                     size={24} 
                     color="#d4a574" 
                   />
@@ -186,14 +261,18 @@ export const RecipeModal: React.FC<RecipeModalProps> = ({
                   </View>
                 </TouchableOpacity>
                 
-                {selectedIngredients.find(i => i.ingredientId === ing.id) && (
-                  <TextInput
-                    style={styles.qtyInput}
-                    placeholder="0"
-                    placeholderTextColor="#8b6f4e"
-                    keyboardType="decimal-pad"
-                    onChangeText={(text) => updateQuantity(ing.id, text)}
-                  />
+                {selectedIngredients.find(i => String(i.ingredientId) === entityId(ing)) && (
+                  <View style={styles.qtyInputWrap}>
+                    <TextInput
+                      style={styles.qtyInput}
+                      placeholder={`0 ${ing.unit}`}
+                      placeholderTextColor="#8b6f4e"
+                      keyboardType="decimal-pad"
+                      value={(selectedIngredients.find(i => String(i.ingredientId) === entityId(ing))?.quantity || '').toString()}
+                      onChangeText={(text) => updateQuantity(entityId(ing), text)}
+                    />
+                    <Text style={styles.qtyUnitBadge}>{ing.unit}</Text>
+                  </View>
                 )}
               </View>
             ))}
@@ -264,6 +343,28 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#4a3428',
   },
+  imageRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  imageInput: {
+    flex: 1,
+  },
+  uploadInlineBtn: {
+    width: 50,
+    height: 50,
+    borderRadius: 12,
+    backgroundColor: '#2c1810',
+    borderWidth: 1,
+    borderColor: '#4a3428',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  uploadInlineBtnText: {
+    color: '#d4a574',
+    fontSize: 20,
+  },
   categories: {
     flexDirection: 'row',
     flexWrap: 'wrap',
@@ -324,8 +425,13 @@ const styles = StyleSheet.create({
     color: '#8b6f4e',
     fontSize: 12,
   },
+  qtyInputWrap: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
   qtyInput: {
-    width: 60,
+    width: 84,
     backgroundColor: '#1a0f0a',
     borderRadius: 8,
     padding: 8,
@@ -333,6 +439,14 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     borderWidth: 1,
     borderColor: '#d4a574',
+  },
+  qtyUnitBadge: {
+    color: '#d4a574',
+    fontSize: 12,
+    fontWeight: '700',
+    textTransform: 'uppercase',
+    minWidth: 32,
+    textAlign: 'right',
   },
   summary: {
     backgroundColor: '#2c1810',

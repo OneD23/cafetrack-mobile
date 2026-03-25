@@ -1,6 +1,20 @@
 import { createSlice, PayloadAction, createAsyncThunk } from '@reduxjs/toolkit';
 import { api } from '../api/client';
 
+interface InventoryIngredient {
+  id: string;
+  [key: string]: any;
+}
+
+interface InventoryState {
+  ingredients: InventoryIngredient[];
+  movements: any[];
+  loading: boolean;
+  error: string | null;
+  lastSync: string | null;
+  lowStockAlerts: string[];
+}
+
 // Thunks para API
 export const fetchIngredients = createAsyncThunk(
   'inventory/fetchIngredients',
@@ -50,16 +64,18 @@ export const deductIngredientsForSale = createAsyncThunk(
   }
 );
 
+const initialState: InventoryState = {
+  ingredients: [],
+  movements: [],
+  loading: false,
+  error: null,
+  lastSync: null,
+  lowStockAlerts: [],
+};
+
 const inventorySlice = createSlice({
   name: 'inventory',
-  initialState: {
-    ingredients: [],
-    movements: [],
-    loading: false,
-    error: null,
-    lastSync: null,
-    lowStockAlerts: [],
-  },
+  initialState,
   reducers: {
     setIngredients: (state, action) => {
       state.ingredients = action.payload;
@@ -72,6 +88,42 @@ const inventorySlice = createSlice({
       } else {
         state.ingredients.push(action.payload);
       }
+    },
+    consumeIngredients: (state, action: PayloadAction<{
+      recipeItems: Array<{ ingredientId: string; quantity: number }>;
+      quantity: number;
+      saleId: string;
+      productName: string;
+    }>) => {
+      const { recipeItems, quantity, saleId, productName } = action.payload;
+
+      recipeItems.forEach((ri) => {
+        const index = state.ingredients.findIndex((i: any) => i.id === ri.ingredientId);
+        if (index !== -1) {
+          const ingredient: any = state.ingredients[index];
+          const deductQty = ri.quantity * quantity;
+          const previousStock = ingredient.stock;
+
+          ingredient.stock = Math.max(0, ingredient.stock - deductQty);
+
+          state.movements.push({
+            id: `mov-${Date.now()}-${ri.ingredientId}`,
+            type: 'sale',
+            ingredientId: ri.ingredientId,
+            quantity: -deductQty,
+            date: new Date().toISOString(),
+            reason: `Venta: ${productName}`,
+            saleId,
+            previousStock,
+            newStock: ingredient.stock,
+          });
+        }
+      });
+
+      state.lowStockAlerts = state.ingredients
+        .filter((ing: any) => ing.stock <= ing.minStock)
+        .map((ing: any) => ing.id);
+      state.lastSync = new Date().toISOString();
     },
   },
   extraReducers: (builder) => {
@@ -89,7 +141,7 @@ const inventorySlice = createSlice({
       })
       .addCase(fetchIngredients.rejected, (state, action) => {
         state.loading = false;
-        state.error = action.error.message;
+        state.error = action.error.message || null;
       })
       // addIngredient
       .addCase(addIngredient.pending, (state) => {
@@ -101,7 +153,7 @@ const inventorySlice = createSlice({
       })
       .addCase(addIngredient.rejected, (state, action) => {
         state.loading = false;
-        state.error = action.error.message;
+        state.error = action.error.message || null;
       })
       // deleteIngredient
       .addCase(deleteIngredient.fulfilled, (state, action) => {
@@ -136,5 +188,5 @@ const inventorySlice = createSlice({
   },
 });
 
-export const { setIngredients, updateIngredient } = inventorySlice.actions;
+export const { setIngredients, updateIngredient, consumeIngredients } = inventorySlice.actions;
 export default inventorySlice.reducer;

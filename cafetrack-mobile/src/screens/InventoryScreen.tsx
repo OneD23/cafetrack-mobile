@@ -9,9 +9,12 @@ import {
   Alert,
   TextInput,
   Modal,
+  Image,
+  Platform,
 } from 'react-native';
 import { useSelector, useDispatch } from 'react-redux';
 import { Ionicons } from '@expo/vector-icons';
+import type { AppDispatch } from '../store';
 import { RecipeModal } from '../components/RecipeModal';
 import {
   addIngredient,
@@ -20,12 +23,14 @@ import {
   restockIngredient,
   adjustStock,
 } from '../store/inventorySlice';
-import { deleteProduct } from '../store/recipesSlice';
+import { deleteProduct, toggleProductActive } from '../store/recipesSlice';
+import { addJournalEntry } from '../store/accountingSlice';
 
 export const InventoryScreen: React.FC = () => {
-  const dispatch = useDispatch();
+  const dispatch = useDispatch<AppDispatch>();
   const { ingredients, lowStockAlerts } = useSelector((state: any) => state.inventory);
   const { products, recipes } = useSelector((state: any) => state.recipes);
+  const entityId = (entity: any) => String(entity?.id ?? entity?._id ?? '');
   
   const [activeTab, setActiveTab] = useState<'ingredients' | 'products'>('ingredients');
   const [showRecipeModal, setShowRecipeModal] = useState(false);
@@ -55,6 +60,12 @@ export const InventoryScreen: React.FC = () => {
       minStock: parseFloat(ingMinStock),
       costPerUnit: parseFloat(ingCost),
     }));
+    dispatch(addJournalEntry({
+      direction: 'in',
+      category: 'inventory',
+      description: `Alta ingrediente: ${ingName}`,
+      amount: parseFloat(ingStock) * parseFloat(ingCost),
+    }));
 
     // Reset
     setIngName('');
@@ -80,6 +91,12 @@ export const InventoryScreen: React.FC = () => {
                 quantity: qty,
                 reason: 'Reposición manual',
               }));
+              dispatch(addJournalEntry({
+                direction: 'in',
+                category: 'inventory',
+                description: `Reposición: ${ingredient.name}`,
+                amount: qty * (ingredient.costPerUnit || 0),
+              }));
             }
           },
         },
@@ -89,22 +106,32 @@ export const InventoryScreen: React.FC = () => {
   };
 
   const handleDeleteProduct = (product: any) => {
-    Alert.alert(
-      'Eliminar Producto',
-      `¿Eliminar "${product.name}" y su receta?`,
-      [
-        { text: 'Cancelar', style: 'cancel' },
-        {
-          text: 'Eliminar',
-          style: 'destructive',
-          onPress: () => dispatch(deleteProduct(product.id)),
-        },
-      ]
-    );
+    const productId = String(product?.id ?? product?._id ?? '');
+    if (!productId) {
+      Alert.alert('Error', 'No se pudo identificar el producto a eliminar');
+      return;
+    }
+
+    const confirmDelete = () => {
+      dispatch(deleteProduct(productId));
+      Alert.alert('Eliminado', `${product.name} fue eliminado correctamente.`);
+    };
+
+    if (Platform.OS === 'web' && typeof window !== 'undefined') {
+      if (window.confirm(`¿Eliminar "${product.name}" y su receta?`)) {
+        confirmDelete();
+      }
+      return;
+    }
+
+    Alert.alert('Eliminar Producto', `¿Eliminar "${product.name}" y su receta?`, [
+      { text: 'Cancelar', style: 'cancel' },
+      { text: 'Eliminar', style: 'destructive', onPress: confirmDelete },
+    ]);
   };
 
   const getRecipeForProduct = (productId: string) => {
-    return recipes.find((r: any) => r.productId === productId);
+    return recipes.find((r: any) => String(r.productId) === String(productId));
   };
 
   const filteredIngredients = ingredients.filter((i: any) =>
@@ -155,10 +182,17 @@ export const InventoryScreen: React.FC = () => {
               Alert.prompt('Ajuste', 'Nuevo stock:', (value) => {
                 const newStock = parseFloat(value || '0');
                 if (!isNaN(newStock)) {
+                  const diff = newStock - item.stock;
                   dispatch(adjustStock({
                     ingredientId: item.id,
                     newStock,
                     reason: 'Ajuste manual',
+                  }));
+                  dispatch(addJournalEntry({
+                    direction: diff >= 0 ? 'in' : 'out',
+                    category: 'adjustment',
+                    description: `Ajuste inventario: ${item.name}`,
+                    amount: Math.abs(diff) * (item.costPerUnit || 0),
                   }));
                 }
               });
@@ -188,14 +222,18 @@ export const InventoryScreen: React.FC = () => {
   const renderProductItem = ({ item }: { item: any }) => {
     const recipe = getRecipeForProduct(item.id);
     const totalCost = recipe?.items.reduce((sum: number, ri: any) => {
-      const ing = ingredients.find((i: any) => i.id === ri.ingredientId);
+      const ing = ingredients.find((i: any) => entityId(i) === String(ri.ingredientId));
       return sum + (ing?.costPerUnit || 0) * ri.quantity;
     }, 0) || 0;
 
     return (
       <View style={styles.productCard}>
         <View style={styles.productHeader}>
-          <Text style={styles.productIcon}>{item.icon}</Text>
+          {item.image ? (
+            <Image source={{ uri: item.image }} style={styles.productImage} />
+          ) : (
+            <Text style={styles.productIcon}>{item.icon}</Text>
+          )}
           <View style={styles.productInfo}>
             <Text style={styles.productName}>{item.name}</Text>
             <Text style={styles.productCategory}>{item.category}</Text>
@@ -209,8 +247,9 @@ export const InventoryScreen: React.FC = () => {
         {recipe && (
           <View style={styles.recipePreview}>
             <Text style={styles.recipeTitle}>📝 Receta ({recipe.preparationTime} min):</Text>
+            {recipe.image ? <Image source={{ uri: recipe.image }} style={styles.recipeImage} /> : null}
             {recipe.items.map((ri: any, idx: number) => {
-              const ing = ingredients.find((i: any) => i.id === ri.ingredientId);
+              const ing = ingredients.find((i: any) => entityId(i) === String(ri.ingredientId));
               return (
                 <Text key={idx} style={styles.recipeItem}>
                   • {ing?.name}: {ri.quantity} {ing?.unit}
@@ -238,7 +277,11 @@ export const InventoryScreen: React.FC = () => {
           <TouchableOpacity 
             style={[styles.productActionBtn, !item.isActive && styles.inactiveBtn]}
             onPress={() => {
-              // Toggle active
+              dispatch(toggleProductActive(item.id));
+              Alert.alert(
+                'Estado actualizado',
+                item.isActive ? `${item.name} ahora está inactivo` : `${item.name} ahora está activo`
+              );
             }}
           >
             <Ionicons name={item.isActive ? 'eye' : 'eye-off'} size={18} color={item.isActive ? '#27ae60' : '#8b6f4e'} />
@@ -577,6 +620,13 @@ const styles = StyleSheet.create({
     fontSize: 32,
     marginRight: 12,
   },
+  productImage: {
+    width: 42,
+    height: 42,
+    borderRadius: 8,
+    marginRight: 12,
+    backgroundColor: '#1a0f0a',
+  },
   productInfo: {
     flex: 1,
   },
@@ -607,6 +657,13 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     padding: 12,
     marginBottom: 12,
+  },
+  recipeImage: {
+    width: '100%',
+    height: 130,
+    borderRadius: 10,
+    marginBottom: 8,
+    backgroundColor: '#2c1810',
   },
   recipeTitle: {
     color: '#d4a574',

@@ -17,6 +17,7 @@ export const ReportsScreen: React.FC = () => {
   const [period, setPeriod] = useState<'day' | 'week' | 'month'>('day');
   const { ingredients, movements } = useSelector((state: any) => state.inventory);
   const { products } = useSelector((state: any) => state.recipes);
+  const { entries } = useSelector((state: any) => state.accounting);
 
   // Calcular métricas
   const totalInventoryValue = ingredients.reduce((sum: number, ing: any) => 
@@ -28,6 +29,13 @@ export const ReportsScreen: React.FC = () => {
   ).length;
 
   const totalMovements = movements.length;
+  const totalEntries = entries
+    .filter((e: any) => e.direction === 'in')
+    .reduce((sum: number, e: any) => sum + e.amount, 0);
+  const totalExits = entries
+    .filter((e: any) => e.direction === 'out')
+    .reduce((sum: number, e: any) => sum + e.amount, 0);
+  const netResult = totalEntries - totalExits;
 
   const stats = [
     { 
@@ -54,9 +62,28 @@ export const ReportsScreen: React.FC = () => {
       icon: 'warning-outline',
       color: lowStockCount > 0 ? '#c0392b' : '#27ae60'
     },
+    { 
+      label: 'Entradas', 
+      value: `$${totalEntries.toFixed(2)}`,
+      icon: 'arrow-down-circle-outline',
+      color: '#27ae60'
+    },
+    { 
+      label: 'Salidas', 
+      value: `$${totalExits.toFixed(2)}`,
+      icon: 'arrow-up-circle-outline',
+      color: '#c0392b'
+    },
+    { 
+      label: 'Resultado', 
+      value: `$${netResult.toFixed(2)}`,
+      icon: 'trending-up-outline',
+      color: netResult >= 0 ? '#27ae60' : '#c0392b'
+    },
   ];
 
   const recentMovements = movements.slice(-10).reverse();
+  const recentJournal = entries.slice(0, 10);
 
   return (
     <SafeAreaView style={styles.container}>
@@ -136,6 +163,38 @@ export const ReportsScreen: React.FC = () => {
               </View>
             );
           })
+        )}
+      </ScrollView>
+
+      <Text style={styles.sectionTitle}>📒 Diario Contable</Text>
+      <ScrollView style={styles.movementsList}>
+        {recentJournal.length === 0 ? (
+          <Text style={styles.emptyText}>No hay asientos contables registrados</Text>
+        ) : (
+          recentJournal.map((entry: any) => (
+            <View key={entry.id} style={styles.movementItem}>
+              <View style={styles.movementIcon}>
+                <Ionicons
+                  name={entry.direction === 'in' ? 'trending-down-outline' : 'trending-up-outline'}
+                  size={20}
+                  color={entry.direction === 'in' ? '#27ae60' : '#c0392b'}
+                />
+              </View>
+              <View style={styles.movementInfo}>
+                <Text style={styles.movementTitle}>{entry.description}</Text>
+                <Text style={styles.movementDetail}>{entry.category}</Text>
+                <Text style={styles.movementDate}>{new Date(entry.date).toLocaleString()}</Text>
+              </View>
+              <Text
+                style={[
+                  styles.movementQty,
+                  { color: entry.direction === 'in' ? '#27ae60' : '#c0392b' }
+                ]}
+              >
+                {entry.direction === 'in' ? '+' : '-'}${entry.amount.toFixed(2)}
+              </Text>
+            </View>
+          ))
         )}
       </ScrollView>
     </SafeAreaView>
