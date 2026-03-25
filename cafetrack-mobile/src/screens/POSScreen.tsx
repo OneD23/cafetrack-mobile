@@ -15,12 +15,14 @@ import { useSelector, useDispatch } from "react-redux";
 import { Ionicons } from "@expo/vector-icons";
 import { addToCart, clearCart, processSale, removeFromCart, setDiscount, updateQuantity } from "../store/cartSlice";
 import { PaymentModal } from "../components/PaymentModal";
+import { closeRegister, openRegister, recordCashSale } from "../store/cashRegisterSlice";
 
 const POSScreen: React.FC = () => {
   const dispatch = useDispatch();
   const { items: cartItems, totals, processingSale } = useSelector((state: any) => state.cart);
   const { products, recipes } = useSelector((state: any) => state.recipes);
   const { ingredients } = useSelector((state: any) => state.inventory);
+  const cashRegister = useSelector((state: any) => state.cashRegister);
   
   const [selectedCategory, setSelectedCategory] = useState("all");
   const [searchQuery, setSearchQuery] = useState("");
@@ -85,7 +87,41 @@ const POSScreen: React.FC = () => {
     dispatch(addToCart(product));
   };
 
+  const requestAmount = (title: string, message: string): number | null => {
+    if (Platform.OS === "web" && typeof window !== "undefined") {
+      const raw = window.prompt(message, "0");
+      if (raw === null) return null;
+      const parsed = parseFloat(raw);
+      return Number.isFinite(parsed) && parsed >= 0 ? parsed : null;
+    }
+
+    Alert.alert(title, 'En móvil nativo se abrirá caja con monto 0 por ahora.');
+    return 0;
+  };
+
+  const handleOpenRegister = () => {
+    const amount = requestAmount("Apertura de caja", "Monto inicial en caja:");
+    if (amount === null) {
+      Alert.alert("Dato inválido", "Ingresa un monto válido para abrir caja.");
+      return;
+    }
+    dispatch(openRegister({ openingAmount: amount }));
+  };
+
+  const handleCloseRegister = () => {
+    const amount = requestAmount("Cierre de caja", "Monto contado al cierre:");
+    if (amount === null) {
+      Alert.alert("Dato inválido", "Ingresa un monto válido para cerrar caja.");
+      return;
+    }
+    dispatch(closeRegister({ closingAmount: amount }));
+  };
+
   const handleCompleteSale = async () => {
+    if (!cashRegister.isOpen) {
+      Alert.alert("Caja cerrada", "Debes abrir caja antes de procesar ventas.");
+      return;
+    }
     if (!cartItems.length) {
       Alert.alert("Carrito vacío", "Agrega al menos un producto para continuar.");
       return;
@@ -112,6 +148,9 @@ const POSScreen: React.FC = () => {
           customerName: paymentData.customer?.name,
         }) as any
       ).unwrap();
+      if (paymentData.method === "cash") {
+        dispatch(recordCashSale({ saleId: result.saleId, amount: saleTotals.total }));
+      }
       Alert.alert("Venta completada", "Se descontaron ingredientes del inventario.");
       setShowPaymentModal(false);
       printInvoice(result.saleId, saleItems, saleTotals);
@@ -176,6 +215,17 @@ const POSScreen: React.FC = () => {
           <Text style={styles.stat}>Items: {cartItems.length}</Text>
           <Text style={styles.statTotal}>${totals.total.toFixed(2)}</Text>
         </View>
+      </View>
+      <View style={styles.cashBar}>
+        <Text style={styles.cashStatus}>
+          {cashRegister.isOpen ? `Caja abierta · Fondo: $${(cashRegister.openingAmount || 0).toFixed(2)}` : 'Caja cerrada'}
+        </Text>
+        <TouchableOpacity
+          style={[styles.cashBtn, cashRegister.isOpen ? styles.cashBtnClose : styles.cashBtnOpen]}
+          onPress={cashRegister.isOpen ? handleCloseRegister : handleOpenRegister}
+        >
+          <Text style={styles.cashBtnText}>{cashRegister.isOpen ? 'Cerrar caja' : 'Abrir caja'}</Text>
+        </TouchableOpacity>
       </View>
 
       <View style={styles.searchContainer}>
@@ -327,6 +377,40 @@ const styles = StyleSheet.create({
     color: "#d4a574",
     fontSize: 18,
     fontWeight: "bold",
+  },
+  cashBar: {
+    marginHorizontal: 16,
+    marginBottom: 8,
+    backgroundColor: "#2c1810",
+    borderColor: "#4a3428",
+    borderWidth: 1,
+    borderRadius: 12,
+    padding: 10,
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    gap: 10,
+  },
+  cashStatus: {
+    color: "#f5f1e8",
+    fontSize: 12,
+    flex: 1,
+  },
+  cashBtn: {
+    borderRadius: 8,
+    paddingVertical: 8,
+    paddingHorizontal: 10,
+  },
+  cashBtnOpen: {
+    backgroundColor: "#2e7d32",
+  },
+  cashBtnClose: {
+    backgroundColor: "#8d6e63",
+  },
+  cashBtnText: {
+    color: "#fff",
+    fontWeight: "700",
+    fontSize: 12,
   },
   searchContainer: {
     flexDirection: "row",

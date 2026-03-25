@@ -7,6 +7,7 @@ import recipesReducer from './recipesSlice';
 import offlineReducer from './offlineSlice';
 import { apiSlice } from './apiSlice';
 import accountingReducer from './accountingSlice';
+import cashRegisterReducer from './cashRegisterSlice';
 
 export const store = configureStore({
   reducer: {
@@ -17,6 +18,7 @@ export const store = configureStore({
     recipes: recipesReducer,
     offline: offlineReducer,
     accounting: accountingReducer,
+    cashRegister: cashRegisterReducer,
   },
   middleware: (getDefaultMiddleware) =>
     getDefaultMiddleware({
