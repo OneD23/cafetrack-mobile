@@ -13,7 +13,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { useSelector, useDispatch } from 'react-redux';
 import { Ingredient, RecipeItem } from '../types';
-import { addProduct, updateRecipe } from '../store/recipesSlice';
+import { addProduct, updateProduct, updateRecipe } from '../store/recipesSlice';
 
 interface RecipeModalProps {
   visible: boolean;
@@ -49,11 +49,12 @@ export const RecipeModal: React.FC<RecipeModalProps> = ({
   ];
 
   const toggleIngredient = (ingredient: Ingredient) => {
-    const exists = selectedIngredients.find(i => i.ingredientId === ingredient.id);
+    const ingId = entityId(ingredient);
+    const exists = selectedIngredients.find(i => String(i.ingredientId) === ingId);
     if (exists) {
-      setSelectedIngredients(selectedIngredients.filter(i => i.ingredientId !== ingredient.id));
+      setSelectedIngredients(selectedIngredients.filter(i => String(i.ingredientId) !== ingId));
     } else {
-      setSelectedIngredients([...selectedIngredients, { ingredientId: ingredient.id, quantity: 0 }]);
+      setSelectedIngredients([...selectedIngredients, { ingredientId: ingId, quantity: 0 }]);
     }
   };
 
@@ -127,7 +128,7 @@ export const RecipeModal: React.FC<RecipeModalProps> = ({
 
   const calculateCost = () => {
     return selectedIngredients.reduce((total, item) => {
-      const ing = ingredients.find((i: any) => i.id === item.ingredientId);
+      const ing = ingredients.find((i: any) => entityId(i) === String(item.ingredientId));
       return total + (ing?.costPerUnit || 0) * item.quantity;
     }, 0);
   };
@@ -224,7 +225,7 @@ export const RecipeModal: React.FC<RecipeModalProps> = ({
                   onPress={() => toggleIngredient(ing)}
                 >
                   <Ionicons 
-                    name={selectedIngredients.find(i => i.ingredientId === ing.id) ? 'checkbox' : 'square-outline'} 
+                    name={selectedIngredients.find(i => String(i.ingredientId) === entityId(ing)) ? 'checkbox' : 'square-outline'} 
                     size={24} 
                     color="#d4a574" 
                   />

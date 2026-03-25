@@ -29,6 +29,7 @@ export const InventoryScreen: React.FC = () => {
   const dispatch = useDispatch<AppDispatch>();
   const { ingredients, lowStockAlerts } = useSelector((state: any) => state.inventory);
   const { products, recipes } = useSelector((state: any) => state.recipes);
+  const entityId = (entity: any) => String(entity?.id ?? entity?._id ?? '');
   
   const [activeTab, setActiveTab] = useState<'ingredients' | 'products'>('ingredients');
   const [showRecipeModal, setShowRecipeModal] = useState(false);
@@ -129,7 +130,7 @@ export const InventoryScreen: React.FC = () => {
   };
 
   const getRecipeForProduct = (productId: string) => {
-    return recipes.find((r: any) => r.productId === productId);
+    return recipes.find((r: any) => String(r.productId) === String(productId));
   };
 
   const filteredIngredients = ingredients.filter((i: any) =>
@@ -220,7 +221,7 @@ export const InventoryScreen: React.FC = () => {
   const renderProductItem = ({ item }: { item: any }) => {
     const recipe = getRecipeForProduct(item.id);
     const totalCost = recipe?.items.reduce((sum: number, ri: any) => {
-      const ing = ingredients.find((i: any) => i.id === ri.ingredientId);
+      const ing = ingredients.find((i: any) => entityId(i) === String(ri.ingredientId));
       return sum + (ing?.costPerUnit || 0) * ri.quantity;
     }, 0) || 0;
 
@@ -247,7 +248,7 @@ export const InventoryScreen: React.FC = () => {
             <Text style={styles.recipeTitle}>📝 Receta ({recipe.preparationTime} min):</Text>
             {recipe.image ? <Image source={{ uri: recipe.image }} style={styles.recipeImage} /> : null}
             {recipe.items.map((ri: any, idx: number) => {
-              const ing = ingredients.find((i: any) => i.id === ri.ingredientId);
+              const ing = ingredients.find((i: any) => entityId(i) === String(ri.ingredientId));
               return (
                 <Text key={idx} style={styles.recipeItem}>
                   • {ing?.name}: {ri.quantity} {ing?.unit}
