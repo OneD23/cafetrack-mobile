@@ -9,36 +9,72 @@ import {
   SafeAreaView,
   StatusBar,
   Alert,
+  Platform,
 } from "react-native";
 import { useSelector, useDispatch } from "react-redux";
 import { Ionicons } from "@expo/vector-icons";
-import { addToCart, removeFromCart, updateQuantity, clearCart } from "../store/cartSlice";
-
-const defaultProducts = [
-  { id: "1", name: "Espresso", price: 2.50, cost: 0.80, category: "coffee", icon: "☕", stock: 100, minStock: 20 },
-  { id: "2", name: "Cappuccino", price: 3.50, cost: 1.20, category: "coffee", icon: "☕", stock: 100, minStock: 20 },
-  { id: "3", name: "Latte", price: 3.75, cost: 1.30, category: "coffee", icon: "☕", stock: 100, minStock: 20 },
-  { id: "4", name: "Croissant", price: 2.75, cost: 1.00, category: "pastry", icon: "🥐", stock: 50, minStock: 10 },
-  { id: "5", name: "Muffin", price: 3.25, cost: 1.20, category: "pastry", icon: "🧁", stock: 40, minStock: 10 },
-  { id: "6", name: "Té Helado", price: 2.50, cost: 0.70, category: "drink", icon: "🧊", stock: 80, minStock: 15 },
-  { id: "7", name: "Sandwich", price: 5.50, cost: 2.50, category: "food", icon: "🥪", stock: 30, minStock: 5 },
-];
+import { addToCart, clearCart, processSale, removeFromCart, setDiscount, updateQuantity } from "../store/cartSlice";
+import { PaymentModal } from "../components/PaymentModal";
 
 const POSScreen: React.FC = () => {
   const dispatch = useDispatch();
-  const { items: cartItems, totals } = useSelector((state: any) => state.cart);
+  const { items: cartItems, totals, processingSale } = useSelector((state: any) => state.cart);
+  const { products, recipes } = useSelector((state: any) => state.recipes);
+  const { ingredients } = useSelector((state: any) => state.inventory);
   
   const [selectedCategory, setSelectedCategory] = useState("all");
   const [searchQuery, setSearchQuery] = useState("");
-  const [products] = useState(defaultProducts);
+  const [showPaymentModal, setShowPaymentModal] = useState(false);
+  const hasInventoryData = ingredients.length > 0;
+  const categories = useMemo<string[]>(() => {
+    const allCategories = Array.from(
+      new Set<string>(products.map((p: any) => String(p.category || "")).filter(Boolean))
+    );
+    return ["all", ...allCategories];
+  }, [products]);
+
+  const availableProducts = useMemo(() => {
+    return products.map((product: any) => {
+      const productId = String(product?.id ?? product?._id ?? '');
+      const recipe = recipes.find((r: any) => String(r.productId) === productId);
+      if (!recipe) {
+        return { ...product, stock: 9999, stockUnknown: true };
+      }
+
+      if (!hasInventoryData) {
+        return { ...product, stock: 9999, stockUnknown: true };
+      }
+
+      const matchedItems = recipe.items.filter((ri: any) =>
+        ingredients.some((ing: any) => String(ing.id ?? ing._id) === String(ri.ingredientId))
+      );
+
+      if (!matchedItems.length) {
+        return { ...product, stock: 9999, stockUnknown: true };
+      }
+
+      const maxFromIngredients = matchedItems.reduce((minQty: number, ri: any) => {
+        const ingredient = ingredients.find((ing: any) => String(ing.id ?? ing._id) === String(ri.ingredientId));
+        const possible = ingredient ? Math.floor(ingredient.stock / ri.quantity) : Number.MAX_SAFE_INTEGER;
+        return Math.min(minQty, possible);
+      }, Number.MAX_SAFE_INTEGER);
+
+      return {
+        ...product,
+        stock: Number.isFinite(maxFromIngredients) ? maxFromIngredients : 0,
+        stockUnknown: false,
+      };
+    });
+  }, [products, recipes, ingredients, hasInventoryData]);
 
   const filteredProducts = useMemo(() => {
-    return products.filter((p: any) => {
+    return availableProducts.filter((p: any) => {
       const matchesCategory = selectedCategory === "all" || p.category === selectedCategory;
       const matchesSearch = p.name.toLowerCase().includes(searchQuery.toLowerCase());
-      return matchesCategory && matchesSearch && p.stock > 0;
+      const hasStock = p.stockUnknown ? true : (hasInventoryData ? p.stock > 0 : true);
+      return p.isActive && matchesCategory && matchesSearch && hasStock;
     });
-  }, [products, selectedCategory, searchQuery]);
+  }, [availableProducts, selectedCategory, searchQuery, hasInventoryData]);
 
   const handleAddToCart = (product: any) => {
     if (product.stock <= 0) {
@@ -46,6 +82,87 @@ const POSScreen: React.FC = () => {
       return;
     }
     dispatch(addToCart(product));
+  };
+
+  const handleCompleteSale = async () => {
+    if (!cartItems.length) {
+      Alert.alert("Carrito vacío", "Agrega al menos un producto para continuar.");
+      return;
+    }
+    setShowPaymentModal(true);
+  };
+
+  const handleConfirmPayment = async (paymentData: {
+    method: "cash" | "card" | "transfer";
+    discount: number;
+    customer?: { name: string } | null;
+  }) => {
+    const saleItems = [...cartItems];
+    const saleTotals = { ...totals };
+
+    try {
+      if (paymentData.discount > 0) {
+        dispatch(setDiscount({ type: "fixed", value: paymentData.discount }));
+      }
+
+      const result = await dispatch(
+        processSale({
+          paymentMethod: paymentData.method,
+          customerName: paymentData.customer?.name,
+        }) as any
+      ).unwrap();
+      Alert.alert("Venta completada", "Se descontaron ingredientes del inventario.");
+      setShowPaymentModal(false);
+      printInvoice(result.saleId, saleItems, saleTotals);
+    } catch (error: any) {
+      Alert.alert("No se pudo completar", error?.message || "Error al procesar la venta");
+    }
+  };
+
+  const printInvoice = (saleId: string, items: any[], saleTotals: any) => {
+    if (Platform.OS === "web" && typeof window !== "undefined") {
+      const rows = items
+        .map(
+          (item: any) => `
+            <tr>
+              <td>${item.name}</td>
+              <td>${item.quantity}</td>
+              <td>$${item.price.toFixed(2)}</td>
+              <td>$${(item.price * item.quantity).toFixed(2)}</td>
+            </tr>
+          `
+        )
+        .join("");
+
+      const html = `
+        <html>
+          <head><title>Factura ${saleId}</title></head>
+          <body style="font-family: Arial; padding: 20px;">
+            <h2>CafeTrack - Factura</h2>
+            <p><strong>Folio:</strong> ${saleId}</p>
+            <p><strong>Fecha:</strong> ${new Date().toLocaleString()}</p>
+            <table border="1" cellspacing="0" cellpadding="8" width="100%">
+              <thead><tr><th>Producto</th><th>Cant.</th><th>Precio</th><th>Total</th></tr></thead>
+              <tbody>${rows}</tbody>
+            </table>
+            <h3>Subtotal: $${saleTotals.subtotal.toFixed(2)}</h3>
+            <h3>Impuesto: $${saleTotals.tax.toFixed(2)}</h3>
+            <h2>Total: $${saleTotals.total.toFixed(2)}</h2>
+          </body>
+        </html>
+      `;
+
+      const printWindow = window.open("", "_blank");
+      if (printWindow) {
+        printWindow.document.write(html);
+        printWindow.document.close();
+        printWindow.focus();
+        printWindow.print();
+      }
+      return;
+    }
+
+    Alert.alert("Factura", `Venta ${saleId} registrada. Impresión web no disponible en esta plataforma.`);
   };
 
   return (
@@ -71,11 +188,36 @@ const POSScreen: React.FC = () => {
         />
       </View>
 
+      <View style={styles.categoriesRow}>
+        {categories.map((category) => {
+          const isActive = selectedCategory === category;
+          return (
+            <TouchableOpacity
+              key={category}
+              style={[styles.categoryChip, isActive && styles.categoryChipActive]}
+              onPress={() => setSelectedCategory(category)}
+            >
+              <Text style={[styles.categoryChipText, isActive && styles.categoryChipTextActive]}>
+                {category === "all" ? "Todo" : category}
+              </Text>
+            </TouchableOpacity>
+          );
+        })}
+      </View>
+
       <FlatList
         data={filteredProducts}
         numColumns={2}
         keyExtractor={(item) => item.id}
         contentContainerStyle={styles.productsGrid}
+        ListEmptyComponent={
+          <View style={styles.emptyState}>
+            <Text style={styles.emptyStateTitle}>No hay productos para mostrar</Text>
+            <Text style={styles.emptyStateSubtitle}>
+              Verifica búsqueda, categorías o inventario disponible.
+            </Text>
+          </View>
+        }
         renderItem={({ item }) => (
           <TouchableOpacity 
             style={styles.productCard}
@@ -84,29 +226,65 @@ const POSScreen: React.FC = () => {
             <Text style={styles.productIcon}>{item.icon}</Text>
             <Text style={styles.productName}>{item.name}</Text>
             <Text style={styles.productPrice}>${item.price.toFixed(2)}</Text>
-            <Text style={styles.productStock}>Stock: {item.stock}</Text>
+            <Text style={styles.productStock}>
+              Stock: {item.stockUnknown || !hasInventoryData ? "—" : item.stock}
+            </Text>
           </TouchableOpacity>
         )}
       />
 
       {cartItems.length > 0 && (
         <View style={styles.cartSheet}>
-          <Text style={styles.cartTitle}>🛒 Carrito ({cartItems.length})</Text>
+          <View style={styles.cartTitleRow}>
+            <Text style={styles.cartTitle}>🛒 Carrito ({cartItems.length})</Text>
+            <TouchableOpacity onPress={() => dispatch(clearCart())}>
+              <Text style={styles.clearCart}>Vaciar</Text>
+            </TouchableOpacity>
+          </View>
           {cartItems.map((item: any) => (
             <View key={item.id} style={styles.cartItem}>
-              <Text style={styles.cartItemName}>{item.name} x{item.quantity}</Text>
-              <Text style={styles.cartItemPrice}>${(item.price * item.quantity).toFixed(2)}</Text>
+              <View style={styles.cartItemLeft}>
+                <Text style={styles.cartItemName}>{item.name}</Text>
+                <View style={styles.qtyRow}>
+                  <TouchableOpacity
+                    style={styles.qtyBtn}
+                    onPress={() => dispatch(updateQuantity({ id: item.id, qty: item.quantity - 1 }))}
+                  >
+                    <Text style={styles.qtyBtnText}>-</Text>
+                  </TouchableOpacity>
+                  <Text style={styles.qtyValue}>{item.quantity}</Text>
+                  <TouchableOpacity
+                    style={styles.qtyBtn}
+                    onPress={() => dispatch(updateQuantity({ id: item.id, qty: item.quantity + 1 }))}
+                  >
+                    <Text style={styles.qtyBtnText}>+</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+              <View style={styles.cartItemRight}>
+                <Text style={styles.cartItemPrice}>${(item.price * item.quantity).toFixed(2)}</Text>
+                <TouchableOpacity onPress={() => dispatch(removeFromCart(item.id))}>
+                  <Ionicons name="trash-outline" size={18} color="#d96d61" />
+                </TouchableOpacity>
+              </View>
             </View>
           ))}
           <View style={styles.cartTotal}>
             <Text style={styles.cartTotalLabel}>TOTAL</Text>
             <Text style={styles.cartTotalValue}>${totals.total.toFixed(2)}</Text>
           </View>
-          <TouchableOpacity style={styles.checkoutButton} onPress={() => dispatch(clearCart())}>
+          <TouchableOpacity style={styles.checkoutButton} onPress={handleCompleteSale}>
             <Text style={styles.checkoutText}>COMPLETAR VENTA</Text>
           </TouchableOpacity>
         </View>
       )}
+      <PaymentModal
+        visible={showPaymentModal}
+        onClose={() => setShowPaymentModal(false)}
+        onConfirm={handleConfirmPayment}
+        total={totals.total}
+        loading={processingSale}
+      />
     </SafeAreaView>
   );
 };
@@ -156,9 +334,54 @@ const styles = StyleSheet.create({
     color: "#f5f1e8",
     fontSize: 16,
   },
+  categoriesRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8,
+    paddingHorizontal: 16,
+    marginBottom: 8,
+  },
+  categoryChip: {
+    backgroundColor: "#2c1810",
+    borderColor: "#4a3428",
+    borderWidth: 1,
+    borderRadius: 16,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+  },
+  categoryChipActive: {
+    backgroundColor: "#d4a574",
+    borderColor: "#d4a574",
+  },
+  categoryChipText: {
+    color: "#d4a574",
+    fontSize: 12,
+    textTransform: "capitalize",
+    fontWeight: "600",
+  },
+  categoryChipTextActive: {
+    color: "#1a0f0a",
+  },
   productsGrid: {
     padding: 8,
     paddingBottom: 300,
+  },
+  emptyState: {
+    marginTop: 28,
+    alignItems: "center",
+    paddingHorizontal: 16,
+  },
+  emptyStateTitle: {
+    color: "#f5f1e8",
+    fontSize: 16,
+    fontWeight: "700",
+    textAlign: "center",
+  },
+  emptyStateSubtitle: {
+    marginTop: 6,
+    color: "#8b6f4e",
+    fontSize: 13,
+    textAlign: "center",
   },
   productCard: {
     flex: 1,
@@ -212,13 +435,56 @@ const styles = StyleSheet.create({
     fontWeight: "bold",
     marginBottom: 15,
   },
+  cartTitleRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+  },
+  clearCart: {
+    color: "#d96d61",
+    fontWeight: "700",
+  },
   cartItem: {
     flexDirection: "row",
     justifyContent: "space-between",
     marginBottom: 8,
+    alignItems: "center",
+  },
+  cartItemLeft: {
+    flex: 1,
+  },
+  cartItemRight: {
+    alignItems: "flex-end",
+    gap: 8,
   },
   cartItemName: {
     color: "#f5f1e8",
+  },
+  qtyRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    marginTop: 5,
+  },
+  qtyBtn: {
+    backgroundColor: "#2c1810",
+    borderColor: "#4a3428",
+    borderWidth: 1,
+    borderRadius: 8,
+    width: 24,
+    height: 24,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  qtyBtnText: {
+    color: "#d4a574",
+    fontWeight: "700",
+  },
+  qtyValue: {
+    color: "#f5f1e8",
+    fontWeight: "700",
+    minWidth: 16,
+    textAlign: "center",
   },
   cartItemPrice: {
     color: "#d4a574",
