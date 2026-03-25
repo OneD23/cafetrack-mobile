@@ -38,7 +38,6 @@ export const RecipeModal: React.FC<RecipeModalProps> = ({
   const [price, setPrice] = useState(editingProduct?.price?.toString() || '');
   const [category, setCategory] = useState(editingProduct?.category || 'coffee');
   const [productImage, setProductImage] = useState(editingProduct?.image || '');
-  const [recipeImage, setRecipeImage] = useState(existingRecipe?.image || '');
   const [selectedIngredients, setSelectedIngredients] = useState<RecipeItem[]>(existingRecipe?.items || []);
   const [prepTime, setPrepTime] = useState(existingRecipe?.preparationTime?.toString() || '2');
 
@@ -122,7 +121,6 @@ export const RecipeModal: React.FC<RecipeModalProps> = ({
     setName('');
     setPrice('');
     setProductImage('');
-    setRecipeImage('');
     setSelectedIngredients([]);
     onClose();
   };
@@ -207,16 +205,6 @@ export const RecipeModal: React.FC<RecipeModalProps> = ({
                 <Text style={styles.uploadInlineBtnText}>📷</Text>
               </TouchableOpacity>
             </View>
-
-            <Text style={styles.label}>Imagen de receta (opcional)</Text>
-            <TextInput
-              style={styles.input}
-              value={recipeImage}
-              onChangeText={setRecipeImage}
-              placeholder="https://.../receta.jpg"
-              placeholderTextColor="#8b6f4e"
-              autoCapitalize="none"
-            />
 
             {/* Tiempo de preparación */}
             <Text style={styles.label}>Tiempo de preparación (min)</Text>
