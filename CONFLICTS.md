@@ -226,3 +226,25 @@ npm --prefix cafetrack-mobile run check:screens
 npm --prefix cafetrack-mobile run ts:check
 git push --force-with-lease
 ```
+
+### Opción automática (semi-auto)
+
+Si quieres resolver rápido los conflictos recurrentes en esos 5 archivos, usa:
+
+```bash
+./scripts/git/auto_resolve_conflicts.sh ours
+```
+
+> Usa `theirs` si prefieres quedarte con lo que viene de `main`:
+
+```bash
+./scripts/git/auto_resolve_conflicts.sh theirs
+```
+
+Luego continúa con:
+
+```bash
+git rebase --continue
+npm --prefix cafetrack-mobile run check:screens
+npm --prefix cafetrack-mobile run ts:check
+```
