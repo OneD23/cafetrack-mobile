@@ -68,6 +68,7 @@ export const processSale = createAsyncThunk(
     }
 
     const salePayload = {
+      operationId: `op-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`,
       paymentMethod: payload.paymentMethod,
       customer: payload.customerName ? { name: payload.customerName } : undefined,
       customerId: payload.customerId || undefined,

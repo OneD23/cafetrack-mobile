@@ -39,6 +39,12 @@ const saleSchema = new mongoose.Schema({
     required: true,
     default: generateSaleId
   },
+  operationId: {
+    type: String,
+    unique: true,
+    sparse: true,
+    index: true,
+  },
   items: [saleItemSchema],
   subtotal: {
     type: Number,

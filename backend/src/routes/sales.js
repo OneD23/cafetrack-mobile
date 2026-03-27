@@ -28,12 +28,39 @@ router.post('/', protect, async (req, res) => {
   session.startTransaction();
 
   try {
-    const { items, paymentMethod, customer, customerId, discount, deviceId, syncId } = req.body;
+    const { items, paymentMethod, customer, customerId, discount, deviceId, syncId, operationId } = req.body;
+
+    if (!Array.isArray(items) || items.length === 0) {
+      throw new Error('La venta debe incluir al menos un item');
+    }
+
+    const validMethods = ['cash', 'card', 'transfer', 'mixed'];
+    if (!validMethods.includes(String(paymentMethod || ''))) {
+      throw new Error('Método de pago inválido');
+    }
+
+    if (operationId) {
+      const existing = await Sale.findOne({ operationId }).session(session);
+      if (existing) {
+        await session.commitTransaction();
+        return res.status(200).json({
+          success: true,
+          data: existing,
+          duplicate: true,
+        });
+      }
+    }
 
     const parsedDiscount = {
       type: discount?.type || 'none',
       value: Number(discount?.value || 0)
     };
+    if (parsedDiscount.value < 0) {
+      throw new Error('El descuento no puede ser negativo');
+    }
+    if (!['none', 'fixed', 'percentage'].includes(parsedDiscount.type)) {
+      throw new Error('Tipo de descuento inválido');
+    }
 
     let customerSnapshot = customer;
     let resolvedCustomerId = null;
@@ -59,7 +86,14 @@ router.post('/', protect, async (req, res) => {
 
     // Validar stock de ingredientes para cada item
     for (const item of items) {
+      if (!item?.productId || Number(item?.quantity || 0) <= 0) {
+        throw new Error('Item de venta inválido');
+      }
+
       const product = await Product.findById(item.productId).session(session);
+      if (!product) {
+        throw new Error('Producto no encontrado en la venta');
+      }
       
       if (!product || !product.hasRecipe) continue;
 
@@ -152,6 +186,7 @@ router.post('/', protect, async (req, res) => {
     // Crear venta
     const sale = await Sale.create([{
       saleId,
+      operationId: operationId || undefined,
       items: saleItems,
       subtotal,
       discount: {
