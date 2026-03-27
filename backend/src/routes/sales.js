@@ -29,10 +29,7 @@ router.post('/', protect, async (req, res) => {
   try {
     const { items, paymentMethod, customer, customerId, discount, deviceId, syncId } = req.body;
 
-    const parsedDiscount = {
-      type: discount?.type || 'none',
-      value: Number(discount?.value || 0)
-    };
+   
 
     let customerSnapshot = customer;
     let resolvedCustomerId = null;
