@@ -178,8 +178,9 @@ const POSScreen: React.FC = () => {
         .join('\n');
       const ticketText = [
         '☕ CAFE TRACK',
-        `Ticket: ${saleId}`,
+        `Factura #: ${saleId}`,
         `Fecha: ${createdAt}`,
+        `Cliente: ${sale?.customer?.name || data?.customer?.name || 'Consumidor final'}`,
         '----------------------',
         lines,
         '----------------------',

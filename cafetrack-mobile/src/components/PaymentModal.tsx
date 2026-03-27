@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Modal, TextInput } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { api } from '../api/client';
 
 interface PaymentModalProps {
   visible: boolean;
@@ -21,6 +22,23 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
   const [discount, setDiscount] = useState('');
   const [customerId, setCustomerId] = useState('');
   const [customerName, setCustomerName] = useState('');
+  const [loadingCustomer, setLoadingCustomer] = useState(false);
+
+  const lookupCustomerById = async () => {
+    if (!customerId.trim()) return;
+    try {
+      setLoadingCustomer(true);
+      const response = await api.getCustomers(customerId.trim());
+      const found = (response?.data || []).find(
+        (c: any) => String(c.customerId).toLowerCase() === customerId.trim().toLowerCase()
+      );
+      if (found) {
+        setCustomerName(found.name || '');
+      }
+    } finally {
+      setLoadingCustomer(false);
+    }
+  };
 
   const handleConfirm = () => {
     onConfirm({
@@ -190,6 +208,12 @@ const styles = StyleSheet.create({
     fontSize: 16,
     borderWidth: 1,
     borderColor: '#4a3428',
+  },
+  helperText: {
+    color: '#8b6f4e',
+    fontSize: 12,
+    marginTop: 4,
+    marginBottom: 2,
   },
   buttons: {
     flexDirection: 'row',
