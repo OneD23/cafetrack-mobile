@@ -147,12 +147,48 @@ async deductIngredients(recipeId: string, quantity: number, saleId: string) {
     });
   }
 
+  async updateProduct(id: string, payload: any) {
+    return this.request(`/products/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(payload),
+    });
+  }
+
+  async deleteProduct(id: string) {
+    return this.request(`/products/${id}`, {
+      method: 'DELETE',
+    });
+  }
+
   // Sales
   async createSale(saleData: any) {
     return this.request('/sales', {
       method: 'POST',
       body: JSON.stringify(saleData),
     });
+  }
+
+  // Customers
+  async getCustomers(search?: string) {
+    const query = search ? `?search=${encodeURIComponent(search)}` : '';
+    return this.request(`/customers${query}`);
+  }
+
+  async createCustomer(payload: {
+    customerId?: string;
+    name: string;
+    email?: string;
+    phone?: string;
+    address?: string;
+  }) {
+    return this.request('/customers', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
+  }
+
+  async getCustomerHistory(customerMongoId: string) {
+    return this.request(`/customers/${customerMongoId}/history`);
   }
 
   async getSales(params?: any) {

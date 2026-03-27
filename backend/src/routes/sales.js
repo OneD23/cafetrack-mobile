@@ -4,9 +4,20 @@ const Product = require('../models/Product');
 const Recipe = require('../models/Recipe');
 const Ingredient = require('../models/Ingredient');
 const InventoryMovement = require('../models/InventoryMovement');
+const Customer = require('../models/Customer');
 const { protect } = require('../middleware/auth');
 
 const router = express.Router();
+
+const generateSaleId = async (session) => {
+  const date = new Date();
+  const prefix = `SALE-${date.getFullYear()}${String(date.getMonth() + 1).padStart(2, '0')}${String(date.getDate()).padStart(2, '0')}`;
+  const count = await Sale.countDocuments({
+    saleId: new RegExp(`^${prefix}`)
+  }).session(session);
+
+  return `${prefix}-${String(count + 1).padStart(4, '0')}`;
+};
 
 // @route   POST /api/sales
 // @desc    Crear venta y descontar inventario
@@ -16,7 +27,28 @@ router.post('/', protect, async (req, res) => {
   session.startTransaction();
 
   try {
-    const { items, paymentMethod, customer, discount, deviceId, syncId } = req.body;
+    const { items, paymentMethod, customer, customerId, discount, deviceId, syncId } = req.body;
+
+    const parsedDiscount = {
+      type: discount?.type || 'none',
+      value: Number(discount?.value || 0)
+    };
+
+    let customerSnapshot = customer;
+    let resolvedCustomerId = null;
+    if (customerId) {
+      const foundCustomer = await Customer.findById(customerId).session(session);
+      if (!foundCustomer) {
+        throw new Error('Cliente no encontrado');
+      }
+
+      resolvedCustomerId = foundCustomer._id;
+      customerSnapshot = {
+        name: foundCustomer.name,
+        email: foundCustomer.email,
+        phone: foundCustomer.phone,
+      };
+    }
 
     // Validar stock de ingredientes para cada item
     for (const item of items) {
@@ -100,28 +132,31 @@ router.post('/', protect, async (req, res) => {
 
     // Aplicar descuento
     let discountAmount = 0;
-    if (discount && discount.type !== 'none') {
-      discountAmount = discount.type === 'percentage' 
-        ? subtotal * (discount.value / 100)
-        : Math.min(discount.value, subtotal);
+    if (parsedDiscount.type !== 'none') {
+      discountAmount = parsedDiscount.type === 'percentage' 
+        ? subtotal * (parsedDiscount.value / 100)
+        : Math.min(parsedDiscount.value, subtotal);
     }
 
     const tax = (subtotal - discountAmount) * 0.16;
     const total = subtotal - discountAmount + tax;
+    const saleId = await generateSaleId(session);
 
     // Crear venta
     const sale = await Sale.create([{
+      saleId,
       items: saleItems,
       subtotal,
       discount: {
-        type: discount?.type || 'none',
-        value: discount?.value || 0,
+        type: parsedDiscount.type,
+        value: parsedDiscount.value,
         amount: discountAmount
       },
       tax,
       total,
       paymentMethod,
-      customer,
+      customer: customerSnapshot,
+      customerId: resolvedCustomerId,
       cashier: req.user._id,
       syncId,
       deviceId,
@@ -179,6 +214,7 @@ router.get('/', protect, async (req, res) => {
     const sales = await Sale.find(query)
       .populate('items.product', 'name icon')
       .populate('cashier', 'name')
+      .populate('customerId', 'customerId name')
       .sort({ createdAt: -1 })
       .limit(limit * 1)
       .skip((page - 1) * limit);
