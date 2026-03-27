@@ -69,6 +69,7 @@ export const processSale = createAsyncThunk(
     const salePayload = {
       paymentMethod: payload.paymentMethod,
       customer: payload.customerName ? { name: payload.customerName } : undefined,
+      customerId: payload.customerId || undefined,
       discount:
         Number(payload.discount || 0) > 0
           ? { type: 'fixed', value: Number(payload.discount || 0) }
