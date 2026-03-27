@@ -38,11 +38,7 @@ router.post('/', protect, async (req, res) => {
     let customerSnapshot = customer;
     let resolvedCustomerId = null;
     if (customerId) {
-      const customerQuery = mongoose.Types.ObjectId.isValid(String(customerId))
-        ? { $or: [{ _id: customerId }, { customerId: String(customerId) }] }
-        : { customerId: String(customerId) };
-
-      const foundCustomer = await Customer.findOne(customerQuery).session(session);
+      const foundCustomer = await Customer.findById(customerId).session(session);
       if (!foundCustomer) {
         throw new Error('Cliente no encontrado');
       }
@@ -54,6 +50,11 @@ router.post('/', protect, async (req, res) => {
         phone: foundCustomer.phone,
       };
     }
+
+    const parsedDiscount = {
+      type: discount?.type || 'none',
+      value: Number(discount?.value || 0)
+    };
 
     // Validar stock de ingredientes para cada item
     for (const item of items) {
