@@ -104,15 +104,17 @@ export const RecipeModal: React.FC<RecipeModalProps> = ({
       return;
     }
 
-    const payload = {
-      product: {
-        name,
-        price: parseFloat(price),
-        category,
-        icon: categories.find((c) => c.id === category)?.icon || '☕',
-        image: recipeImage || null,
-        isActive: true,
-      },
+    const productPayload = {
+      name,
+      price: parseFloat(price),
+      category,
+      icon: categories.find((c) => c.id === category)?.icon || '☕',
+      image: recipeImage || null,
+      isActive: editingProduct?.isActive ?? true,
+    };
+
+    const createPayload = {
+      ...productPayload,
       recipe: {
         items: validItems,
         preparationTime: parseInt(prepTime, 10) || 2,
@@ -123,10 +125,10 @@ export const RecipeModal: React.FC<RecipeModalProps> = ({
     try {
       if (editingProduct?.id) {
         await dispatch(
-          updateProductWithRecipe({ id: editingProduct.id, payload })
+          updateProductWithRecipe({ id: editingProduct.id, payload: productPayload })
         ).unwrap();
       } else {
-        await dispatch(createProductWithRecipe(payload)).unwrap();
+        await dispatch(createProductWithRecipe(createPayload)).unwrap();
       }
 
       setName('');

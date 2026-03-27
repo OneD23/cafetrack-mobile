@@ -30,6 +30,21 @@ export const deleteProduct = createAsyncThunk(
   }
 );
 
+export const toggleProductActive = createAsyncThunk(
+  'recipes/toggleProductActive',
+  async (id: string, { getState, rejectWithValue }: any) => {
+    const state = getState();
+    const product = state.recipes.products.find((p: any) => String(p.id) === String(id));
+
+    if (!product) {
+      return rejectWithValue('Producto no encontrado');
+    }
+
+    const response = await api.updateProduct(id, { isActive: !product.isActive });
+    return response.data;
+  }
+);
+
 const recipesSlice = createSlice({
   name: 'recipes',
   initialState: {
@@ -140,6 +155,17 @@ const recipesSlice = createSlice({
       .addCase(deleteProduct.fulfilled, (state: any, action) => {
         state.products = state.products.filter((p: any) => p.id !== action.payload);
         state.recipes = state.recipes.filter((r: any) => r.productId !== action.payload);
+      })
+      .addCase(toggleProductActive.fulfilled, (state: any, action) => {
+        const product = action.payload;
+        const idx = state.products.findIndex((p: any) => p.id === product._id);
+
+        if (idx !== -1) {
+          state.products[idx] = {
+            ...state.products[idx],
+            isActive: product.isActive,
+          };
+        }
       });
   },
 });
