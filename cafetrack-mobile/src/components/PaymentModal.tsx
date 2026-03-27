@@ -35,6 +35,8 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
       if (found) {
         setCustomerName(found.name || '');
       }
+    } catch {
+      // Sin internet o token inválido: evitamos romper la UI.
     } finally {
       setLoadingCustomer(false);
     }

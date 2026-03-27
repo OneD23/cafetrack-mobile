@@ -7,6 +7,7 @@ import { ActivityIndicator, View, Text } from 'react-native';
 import { store } from './src/store';
 import { fetchIngredients } from './src/store/inventorySlice';
 import { restoreSession } from './src/store/authSlice';
+import { api } from './src/api/client';
 
 import LoginScreen from './src/screens/LoginScreen';
 import POSScreen from './src/screens/POSScreen';
@@ -71,6 +72,9 @@ function AppContent() {
   React.useEffect(() => {
     if (authState.user) {
       store.dispatch(fetchIngredients() as any);
+      api.warmupOfflineBackup().catch(() => {
+        // Si no hay internet, usamos el cache local disponible.
+      });
     }
   }, [authState.user]);
 

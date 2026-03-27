@@ -25,6 +25,7 @@ import { PaymentModal } from '../components/PaymentModal';
 import { fetchProducts } from '../store/recipesSlice';
 import { logout } from '../store/authSlice';
 import { api } from '../api/client';
+import { useOfflineSync } from '../hooks/useOfflineSync';
 
 const POSScreen: React.FC = () => {
   const dispatch = useDispatch<any>();
@@ -39,6 +40,31 @@ const POSScreen: React.FC = () => {
     openingAmount: 0,
     openedAt: null as string | null,
   });
+  const { syncOfflineQueue, pendingCount } = useOfflineSync();
+
+  useEffect(() => {
+    const restoreCashRegister = async () => {
+      try {
+        const raw = await AsyncStorage.getItem('cash_register_state');
+        if (!raw) return;
+        const saved = JSON.parse(raw);
+        if (saved?.isOpen) {
+          setCashRegister({
+            isOpen: true,
+            openingAmount: Number(saved.openingAmount || 0),
+            openedAt: saved.openedAt || null,
+          });
+        }
+      } catch (error) {
+        console.warn('No se pudo restaurar el estado de caja');
+      }
+    };
+    restoreCashRegister();
+  }, []);
+
+  useEffect(() => {
+    AsyncStorage.setItem('cash_register_state', JSON.stringify(cashRegister));
+  }, [cashRegister]);
 
   useEffect(() => {
     const restoreCashRegister = async () => {
@@ -67,6 +93,20 @@ const POSScreen: React.FC = () => {
   useEffect(() => {
     dispatch(fetchProducts());
   }, [dispatch]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    const handleOnline = async () => {
+      const result = await syncOfflineQueue();
+      if ((result as any)?.synced > 0) {
+        Alert.alert('Sincronización', `Se sincronizaron ${(result as any).synced} operación(es) pendientes.`);
+      }
+    };
+
+    window.addEventListener('online', handleOnline);
+    return () => window.removeEventListener('online', handleOnline);
+  }, [syncOfflineQueue]);
 
   const categories = useMemo(() => {
     const unique = new Set<string>();
@@ -246,7 +286,14 @@ const POSScreen: React.FC = () => {
 
       setShowPaymentModal(false);
       printTicket(response?.data);
-      Alert.alert('Venta completada', 'La venta se registró correctamente.');
+      if (response?.offline) {
+        Alert.alert(
+          'Venta guardada sin internet',
+          'La venta se guardó localmente y se sincronizará cuando vuelva la conexión.'
+        );
+      } else {
+        Alert.alert('Venta completada', 'La venta se registró correctamente.');
+      }
     } catch (error: any) {
       const message = String(error?.message || 'No se pudo completar la venta.');
       if (message.toLowerCase().includes('stock insuficiente')) {
@@ -272,6 +319,11 @@ const POSScreen: React.FC = () => {
           <Text style={styles.statTotal}>${totals.total.toFixed(2)}</Text>
         </View>
       </View>
+      {pendingCount > 0 ? (
+        <Text style={styles.pendingSyncText}>
+          ⏳ Pendiente por sincronizar: {pendingCount}
+        </Text>
+      ) : null}
 
       <View style={styles.cashBox}>
         <Text style={styles.cashLabel}>
@@ -301,7 +353,12 @@ const POSScreen: React.FC = () => {
         />
       </View>
 
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.categoriesRow}>
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        style={styles.categoriesScroller}
+        contentContainerStyle={styles.categoriesRow}
+      >
         {categories.map((category) => {
           const isActive = selectedCategory === category;
           return (
@@ -445,16 +502,21 @@ const styles = StyleSheet.create({
   searchInput: { flex: 1, padding: 12, color: '#f5f1e8', fontSize: 16 },
   categoriesRow: {
     paddingHorizontal: 16,
-    paddingBottom: 8,
+    paddingBottom: 6,
+    alignItems: 'center',
     gap: 8,
+  },
+  categoriesScroller: {
+    maxHeight: 48,
+    minHeight: 44,
   },
   categoryChip: {
     backgroundColor: '#2c1810',
     borderColor: '#4a3428',
     borderWidth: 1,
-    borderRadius: 16,
+    borderRadius: 14,
     paddingHorizontal: 12,
-    paddingVertical: 8,
+    paddingVertical: 6,
   },
   categoryChipActive: {
     backgroundColor: '#d4a574',
@@ -465,6 +527,12 @@ const styles = StyleSheet.create({
     fontSize: 12,
     textTransform: 'capitalize',
     fontWeight: '600',
+  },
+  pendingSyncText: {
+    color: '#f1c27d',
+    fontSize: 12,
+    paddingHorizontal: 16,
+    marginBottom: 4,
   },
   categoryChipTextActive: {
     color: '#1a0f0a',

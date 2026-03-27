@@ -1,5 +1,6 @@
 import { createSlice, PayloadAction, createAsyncThunk } from '@reduxjs/toolkit';
 import { api } from '../api/client';
+import { addToQueue } from './offlineSlice';
 
 export interface CartItem {
   id: string;
@@ -57,7 +58,7 @@ export const processSale = createAsyncThunk(
       customerId?: string;
       discount?: number;
     },
-    { getState }
+    { getState, dispatch }
   ) => {
     const state = getState() as { cart: CartState };
     const { items } = state.cart;
@@ -84,8 +85,45 @@ export const processSale = createAsyncThunk(
       createdAt: new Date().toISOString(),
     };
 
-    const response = await api.createSale(salePayload);
-    return response;
+    try {
+      const response = await api.createSale(salePayload);
+      return response;
+    } catch (error: any) {
+      const message = String(error?.message || '');
+      const networkLike =
+        message.toLowerCase().includes('network') ||
+        message.toLowerCase().includes('failed to fetch') ||
+        message.toLowerCase().includes('fetch') ||
+        message.toLowerCase().includes('connection') ||
+        message.toLowerCase().includes('token inválido') ||
+        message.toLowerCase().includes('unauthorized');
+
+      if (!networkLike) {
+        throw error;
+      }
+
+      dispatch(
+        addToQueue({
+          type: 'sale',
+          data: salePayload,
+        }) as any
+      );
+
+      return {
+        offline: true,
+        data: {
+          saleId: `OFF-${Date.now()}`,
+          createdAt: new Date().toISOString(),
+          customer: salePayload.customer || null,
+        },
+      };
+    }
+  },
+  {
+    condition: (_, { getState }) => {
+      const state = getState() as any;
+      return !state.cart.processingSale;
+    }
   }
 );
 
