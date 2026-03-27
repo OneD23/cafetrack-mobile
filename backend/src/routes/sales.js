@@ -8,6 +8,16 @@ const { protect } = require('../middleware/auth');
 
 const router = express.Router();
 
+const generateSaleId = async (session) => {
+  const date = new Date();
+  const prefix = `SALE-${date.getFullYear()}${String(date.getMonth() + 1).padStart(2, '0')}${String(date.getDate()).padStart(2, '0')}`;
+  const count = await Sale.countDocuments({
+    saleId: new RegExp(`^${prefix}`)
+  }).session(session);
+
+  return `${prefix}-${String(count + 1).padStart(4, '0')}`;
+};
+
 // @route   POST /api/sales
 // @desc    Crear venta y descontar inventario
 // @access  Private
@@ -17,6 +27,11 @@ router.post('/', protect, async (req, res) => {
 
   try {
     const { items, paymentMethod, customer, discount, deviceId, syncId } = req.body;
+
+    const parsedDiscount = {
+      type: discount?.type || 'none',
+      value: Number(discount?.value || 0)
+    };
 
     // Validar stock de ingredientes para cada item
     for (const item of items) {
@@ -100,22 +115,24 @@ router.post('/', protect, async (req, res) => {
 
     // Aplicar descuento
     let discountAmount = 0;
-    if (discount && discount.type !== 'none') {
-      discountAmount = discount.type === 'percentage' 
-        ? subtotal * (discount.value / 100)
-        : Math.min(discount.value, subtotal);
+    if (parsedDiscount.type !== 'none') {
+      discountAmount = parsedDiscount.type === 'percentage' 
+        ? subtotal * (parsedDiscount.value / 100)
+        : Math.min(parsedDiscount.value, subtotal);
     }
 
     const tax = (subtotal - discountAmount) * 0.16;
     const total = subtotal - discountAmount + tax;
+    const saleId = await generateSaleId(session);
 
     // Crear venta
     const sale = await Sale.create([{
+      saleId,
       items: saleItems,
       subtotal,
       discount: {
-        type: discount?.type || 'none',
-        value: discount?.value || 0,
+        type: parsedDiscount.type,
+        value: parsedDiscount.value,
         amount: discountAmount
       },
       tax,
