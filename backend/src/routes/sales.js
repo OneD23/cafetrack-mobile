@@ -30,12 +30,21 @@ router.post('/', protect, async (req, res) => {
   try {
     const { items, paymentMethod, customer, customerId, discount, deviceId, syncId } = req.body;
 
-   
+    const parsedDiscount = {
+      type: discount?.type || 'none',
+      value: Number(discount?.value || 0)
+    };
 
     let customerSnapshot = customer;
     let resolvedCustomerId = null;
     if (customerId) {
-      const foundCustomer = await Customer.findById(customerId).session(session);
+      const customerAsText = String(customerId).trim();
+      const isMongoId = /^[a-fA-F0-9]{24}$/.test(customerAsText);
+      const customerQuery = isMongoId
+        ? { $or: [{ _id: customerId }, { customerId: String(customerId) }] }
+        : { customerId: customerAsText };
+
+      const foundCustomer = await Customer.findOne(customerQuery).session(session);
       if (!foundCustomer) {
         throw new Error('Cliente no encontrado');
       }
@@ -47,11 +56,6 @@ router.post('/', protect, async (req, res) => {
         phone: foundCustomer.phone,
       };
     }
-
-    const parsedDiscount = {
-      type: discount?.type || 'none',
-      value: Number(discount?.value || 0)
-    };
 
     // Validar stock de ingredientes para cada item
     for (const item of items) {

@@ -96,7 +96,12 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
             placeholderTextColor="#8b6f4e"
             value={customerId}
             onChangeText={setCustomerId}
+            onSubmitEditing={lookupCustomerById}
           />
+          {loadingCustomer ? <Text style={styles.helperText}>Buscando cliente...</Text> : null}
+          {!loadingCustomer && customerName ? (
+            <Text style={styles.helperText}>Cliente detectado: {customerName}</Text>
+          ) : null}
 
           <Text style={styles.sectionTitle}>Cliente (opcional)</Text>
           <TextInput

@@ -9,6 +9,7 @@ import {
   TextInput,
   Alert,
   Platform,
+  Modal,
 } from 'react-native';
 import { useSelector } from 'react-redux';
 import { api } from '../api/client';
@@ -17,6 +18,9 @@ const ReportsScreen: React.FC = () => {
   const [tab, setTab] = useState<'stats' | 'invoices' | 'reports' | 'fiscal'>('stats');
   const [sales, setSales] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
+  const [filterType, setFilterType] = useState<'day' | 'month' | 'year'>('day');
+  const [filterValue, setFilterValue] = useState(new Date().toISOString().slice(0, 10));
+  const [selectedInvoice, setSelectedInvoice] = useState<any>(null);
   const [fiscalConfig, setFiscalConfig] = useState({
     businessName: 'CafeTrack',
     taxId: '',
@@ -26,15 +30,36 @@ const ReportsScreen: React.FC = () => {
 
   const ingredients = useSelector((state: any) => state.inventory?.ingredients || []);
 
+  const buildRange = () => {
+    const now = new Date();
+    if (filterType === 'day') {
+      const day = filterValue || now.toISOString().slice(0, 10);
+      const start = new Date(`${day}T00:00:00`);
+      const end = new Date(`${day}T23:59:59`);
+      return { start, end };
+    }
+
+    if (filterType === 'month') {
+      const month = filterValue || now.toISOString().slice(0, 7);
+      const [year, m] = month.split('-').map(Number);
+      const start = new Date(year, (m || 1) - 1, 1, 0, 0, 0);
+      const end = new Date(year, (m || 1), 0, 23, 59, 59);
+      return { start, end };
+    }
+
+    const year = Number(filterValue || new Date().getFullYear());
+    const start = new Date(year, 0, 1, 0, 0, 0);
+    const end = new Date(year, 11, 31, 23, 59, 59);
+    return { start, end };
+  };
+
   const loadSales = async () => {
     try {
       setLoading(true);
-      const now = new Date();
-      const start = new Date(now);
-      start.setHours(0, 0, 0, 0);
+      const { start, end } = buildRange();
       const response = await api.getSales({
         startDate: start.toISOString(),
-        endDate: now.toISOString(),
+        endDate: end.toISOString(),
         limit: '1000',
       });
       setSales(response?.data || []);
@@ -47,7 +72,7 @@ const ReportsScreen: React.FC = () => {
 
   useEffect(() => {
     loadSales();
-  }, []);
+  }, [filterType, filterValue]);
 
   const accountingSummary = useMemo(() => {
     return sales.reduce(
@@ -71,9 +96,10 @@ const ReportsScreen: React.FC = () => {
   );
 
   const printAccountingReport = () => {
+    const { start, end } = buildRange();
     const report = [
       '📘 REPORTE CONTABLE DEL DÍA',
-      `Fecha: ${new Date().toLocaleString()}`,
+      `Periodo: ${start.toLocaleDateString()} - ${end.toLocaleDateString()}`,
       `Facturas emitidas: ${accountingSummary.invoices}`,
       `Subtotal: $${accountingSummary.subtotal.toFixed(2)}`,
       `Descuentos: $${accountingSummary.discount.toFixed(2)}`,
@@ -100,6 +126,36 @@ const ReportsScreen: React.FC = () => {
     Alert.alert('Reporte contable', report);
   };
 
+  const printInvoice = (sale: any) => {
+    const text = [
+      `Factura #${sale.saleId}`,
+      `Fecha: ${new Date(sale.createdAt).toLocaleString()}`,
+      `Cliente: ${sale.customer?.name || sale.customerId?.name || 'Consumidor final'}`,
+      '----------------------',
+      ...(sale.items || []).map(
+        (item: any) =>
+          `${item.quantity} x ${item.product?.name || 'Producto'}  $${Number(item.total || 0).toFixed(2)}`
+      ),
+      '----------------------',
+      `Subtotal: $${Number(sale.subtotal || 0).toFixed(2)}`,
+      `Descuento: $${Number(sale.discount?.amount || 0).toFixed(2)}`,
+      `Impuesto: $${Number(sale.tax || 0).toFixed(2)}`,
+      `Total: $${Number(sale.total || 0).toFixed(2)}`,
+    ].join('\n');
+
+    if (Platform.OS === 'web' && typeof window !== 'undefined') {
+      const win = window.open('', '_blank', 'width=420,height=700');
+      if (win) {
+        win.document.write(`<pre style="font-family: monospace; font-size: 13px; padding: 16px;">${text}</pre>`);
+        win.document.close();
+        win.focus();
+        win.print();
+        return;
+      }
+    }
+    Alert.alert('Factura', text);
+  };
+
   return (
     <SafeAreaView style={styles.container}>
       <Text style={styles.title}>💼 Contabilidad</Text>
@@ -121,6 +177,37 @@ const ReportsScreen: React.FC = () => {
             </Text>
           </TouchableOpacity>
         ))}
+      </View>
+
+      <View style={styles.filterBox}>
+        <View style={styles.filterTypeRow}>
+          {(['day', 'month', 'year'] as const).map((f) => (
+            <TouchableOpacity
+              key={f}
+              style={[styles.filterTypeBtn, filterType === f && styles.filterTypeBtnActive]}
+              onPress={() => {
+                setFilterType(f);
+                if (f === 'day') setFilterValue(new Date().toISOString().slice(0, 10));
+                if (f === 'month') setFilterValue(new Date().toISOString().slice(0, 7));
+                if (f === 'year') setFilterValue(String(new Date().getFullYear()));
+              }}
+            >
+              <Text style={styles.filterTypeText}>
+                {f === 'day' ? 'Día' : f === 'month' ? 'Mes' : 'Año'}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+        <TextInput
+          style={styles.input}
+          value={filterValue}
+          onChangeText={setFilterValue}
+          placeholder={filterType === 'day' ? 'YYYY-MM-DD' : filterType === 'month' ? 'YYYY-MM' : 'YYYY'}
+          placeholderTextColor="#8b6f4e"
+        />
+        <TouchableOpacity style={styles.primaryBtn} onPress={loadSales}>
+          <Text style={styles.primaryBtnText}>Buscar</Text>
+        </TouchableOpacity>
       </View>
 
       <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingBottom: 30 }}>
@@ -152,6 +239,12 @@ const ReportsScreen: React.FC = () => {
                   </Text>
                 </View>
                 <Text style={styles.invoiceTotal}>${Number(sale.total || 0).toFixed(2)}</Text>
+                <TouchableOpacity
+                  style={styles.reprintBtn}
+                  onPress={() => setSelectedInvoice(sale)}
+                >
+                  <Text style={styles.reprintText}>Ver / Reimprimir</Text>
+                </TouchableOpacity>
               </View>
             ))}
           </View>
@@ -204,6 +297,53 @@ const ReportsScreen: React.FC = () => {
           </View>
         )}
       </ScrollView>
+
+      <Modal
+        visible={!!selectedInvoice}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setSelectedInvoice(null)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <Text style={styles.blockTitle}>
+              Factura #{selectedInvoice?.saleId}
+            </Text>
+            <Text style={styles.lineSmall}>
+              Cliente: {selectedInvoice?.customer?.name || selectedInvoice?.customerId?.name || 'Consumidor final'}
+            </Text>
+            <Text style={styles.lineSmall}>
+              {selectedInvoice?.createdAt ? new Date(selectedInvoice.createdAt).toLocaleString() : ''}
+            </Text>
+
+            <ScrollView style={{ maxHeight: 220, marginTop: 10 }}>
+              {(selectedInvoice?.items || []).map((item: any, idx: number) => (
+                <Text key={idx} style={styles.line}>
+                  {item.quantity} x {item.product?.name || 'Producto'} - $
+                  {Number(item.total || 0).toFixed(2)}
+                </Text>
+              ))}
+            </ScrollView>
+
+            <Text style={styles.line}>Total: ${Number(selectedInvoice?.total || 0).toFixed(2)}</Text>
+
+            <View style={styles.modalActions}>
+              <TouchableOpacity
+                style={styles.secondaryBtn}
+                onPress={() => setSelectedInvoice(null)}
+              >
+                <Text style={styles.secondaryBtnText}>Cerrar</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.primaryBtn}
+                onPress={() => selectedInvoice && printInvoice(selectedInvoice)}
+              >
+                <Text style={styles.primaryBtnText}>Reimprimir</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 };
@@ -212,6 +352,18 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#1a0f0a', padding: 16 },
   title: { color: '#f5f1e8', fontSize: 26, fontWeight: '700', marginBottom: 10 },
   tabs: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 10 },
+  filterBox: { backgroundColor: '#2c1810', borderRadius: 12, padding: 10, marginBottom: 10 },
+  filterTypeRow: { flexDirection: 'row', gap: 8, marginBottom: 8 },
+  filterTypeBtn: {
+    backgroundColor: '#1a0f0a',
+    borderWidth: 1,
+    borderColor: '#4a3428',
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+  },
+  filterTypeBtnActive: { backgroundColor: '#d4a574', borderColor: '#d4a574' },
+  filterTypeText: { color: '#f5f1e8', fontWeight: '700' },
   tabBtn: {
     backgroundColor: '#2c1810',
     borderColor: '#4a3428',
@@ -238,6 +390,39 @@ const styles = StyleSheet.create({
   },
   invoiceId: { color: '#f5f1e8', fontWeight: '700' },
   invoiceTotal: { color: '#d4a574', fontWeight: '700' },
+  reprintBtn: {
+    marginLeft: 10,
+    backgroundColor: '#1a0f0a',
+    borderWidth: 1,
+    borderColor: '#4a3428',
+    borderRadius: 8,
+    paddingVertical: 5,
+    paddingHorizontal: 8,
+  },
+  reprintText: { color: '#d4a574', fontSize: 11, fontWeight: '700' },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.75)',
+    justifyContent: 'flex-end',
+  },
+  modalContent: {
+    backgroundColor: '#2c1810',
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    padding: 16,
+    maxHeight: '80%',
+  },
+  modalActions: { flexDirection: 'row', gap: 8, marginTop: 12 },
+  secondaryBtn: {
+    backgroundColor: '#1a0f0a',
+    borderRadius: 10,
+    padding: 12,
+    alignItems: 'center',
+    flex: 1,
+    borderWidth: 1,
+    borderColor: '#4a3428',
+  },
+  secondaryBtnText: { color: '#f5f1e8', fontWeight: '700' },
   input: {
     backgroundColor: '#1a0f0a',
     borderColor: '#4a3428',

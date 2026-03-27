@@ -30,8 +30,8 @@ function MainTabs() {
             iconName = focused ? 'cube' : 'cube-outline';
           } else if (route.name === 'Clientes') {
             iconName = focused ? 'people' : 'people-outline';
-          } else if (route.name === 'Reportes') {
-            iconName = focused ? 'bar-chart' : 'bar-chart-outline';
+          } else if (route.name === 'Contabilidad') {
+            iconName = focused ? 'calculator' : 'calculator-outline';
           } else if (route.name === 'Ajustes') {
             iconName = focused ? 'settings' : 'settings-outline';
           }
@@ -51,7 +51,7 @@ function MainTabs() {
       <Tab.Screen name="POS" component={POSScreen} />
       <Tab.Screen name="Inventario" component={InventoryScreen} />
       <Tab.Screen name="Clientes" component={CustomersScreen} />
-      <Tab.Screen name="Reportes" component={ReportsScreen} />
+      <Tab.Screen name="Contabilidad" component={ReportsScreen} />
       <Tab.Screen name="Ajustes" component={SettingsScreen} />
     </Tab.Navigator>
   );
