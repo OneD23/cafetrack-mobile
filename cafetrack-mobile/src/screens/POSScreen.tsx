@@ -10,6 +10,7 @@ import {
   StatusBar,
   Alert,
   ScrollView,
+  Platform,
 } from 'react-native';
 import { useSelector, useDispatch } from 'react-redux';
 import { Ionicons } from '@expo/vector-icons';
@@ -91,8 +92,43 @@ const POSScreen: React.FC = () => {
   };
 
   const handleConfirmPayment = async (data: any) => {
+    const soldItems = cartItems.map((item: any) => ({ ...item }));
+
+    const printTicket = (sale: any) => {
+      const saleId = sale?.saleId || 'N/A';
+      const createdAt = sale?.createdAt ? new Date(sale.createdAt).toLocaleString() : new Date().toLocaleString();
+      const lines = soldItems
+        .map((item: any) => `${item.quantity} x ${item.name}  $${(Number(item.price || 0) * Number(item.quantity || 0)).toFixed(2)}`)
+        .join('\n');
+      const ticketText = [
+        '☕ CAFE TRACK',
+        `Ticket: ${saleId}`,
+        `Fecha: ${createdAt}`,
+        '----------------------',
+        lines,
+        '----------------------',
+        `Subtotal: $${Number(totals.subtotal || 0).toFixed(2)}`,
+        `IVA: $${Number(totals.tax || 0).toFixed(2)}`,
+        `Total: $${Number(totals.total || 0).toFixed(2)}`,
+        `Pago: ${data?.method || 'cash'}`,
+      ].join('\n');
+
+      if (Platform.OS === 'web' && typeof window !== 'undefined') {
+        const printWindow = window.open('', '_blank', 'width=380,height=600');
+        if (printWindow) {
+          printWindow.document.write(`<pre style="font-family: monospace; font-size: 14px; padding: 16px;">${ticketText}</pre>`);
+          printWindow.document.close();
+          printWindow.focus();
+          printWindow.print();
+          return;
+        }
+      }
+
+      Alert.alert('Ticket de venta', ticketText);
+    };
+
     try {
-      await dispatch(
+      const response = await dispatch(
         processSale({
           paymentMethod: data?.method || 'cash',
           customerName: data?.customer?.name || undefined,
@@ -101,9 +137,19 @@ const POSScreen: React.FC = () => {
       ).unwrap();
 
       setShowPaymentModal(false);
+      printTicket(response?.data);
       Alert.alert('Venta completada', 'La venta se registró correctamente.');
     } catch (error: any) {
-      Alert.alert('Error al vender', error?.message || 'No se pudo completar la venta.');
+      const message = String(error?.message || 'No se pudo completar la venta.');
+      if (message.toLowerCase().includes('stock insuficiente')) {
+        Alert.alert(
+          'Stock insuficiente',
+          `${message}\n\nTip: repón ingredientes desde Inventario antes de volver a cobrar.`
+        );
+        return;
+      }
+
+      Alert.alert('Error al vender', message);
     }
   };
 
