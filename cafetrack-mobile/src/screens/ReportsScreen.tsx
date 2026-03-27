@@ -13,83 +13,58 @@ import { Ionicons } from '@expo/vector-icons';
 
 const { width } = Dimensions.get('window');
 
-export const ReportsScreen: React.FC = () => {
+const ReportsScreen: React.FC = () => {
   const [period, setPeriod] = useState<'day' | 'week' | 'month'>('day');
-  const { ingredients, movements } = useSelector((state: any) => state.inventory);
-  const { products } = useSelector((state: any) => state.recipes);
-  const { entries } = useSelector((state: any) => state.accounting);
 
-  // Calcular métricas
-  const totalInventoryValue = ingredients.reduce((sum: number, ing: any) => 
-    sum + (ing.stock * ing.costPerUnit), 0
+  const inventoryState = useSelector((state: any) => state.inventory || {});
+  const recipesState = useSelector((state: any) => state.recipes || {});
+
+  const ingredients = inventoryState.ingredients || [];
+  const movements = inventoryState.movements || [];
+  const products = recipesState.products || [];
+
+  const totalInventoryValue = ingredients.reduce(
+    (sum: number, ing: any) => sum + Number(ing.stock || 0) * Number(ing.costPerUnit || 0),
+    0
   );
 
-  const lowStockCount = ingredients.filter((ing: any) => 
-    ing.stock <= ing.minStock
+  const lowStockCount = ingredients.filter(
+    (ing: any) => Number(ing.stock || 0) <= Number(ing.minStock || 0)
   ).length;
 
-  const totalMovements = movements.length;
-  const totalEntries = entries
-    .filter((e: any) => e.direction === 'in')
-    .reduce((sum: number, e: any) => sum + e.amount, 0);
-  const totalExits = entries
-    .filter((e: any) => e.direction === 'out')
-    .reduce((sum: number, e: any) => sum + e.amount, 0);
-  const netResult = totalEntries - totalExits;
-
   const stats = [
-    { 
-      label: 'Valor Inventario', 
+    {
+      label: 'Valor Inventario',
       value: `$${totalInventoryValue.toFixed(2)}`,
       icon: 'cash-outline',
-      color: '#27ae60'
+      color: '#27ae60',
     },
-    { 
-      label: 'Productos', 
-      value: products.length.toString(),
+    {
+      label: 'Productos',
+      value: String(products.length),
       icon: 'cafe-outline',
-      color: '#d4a574'
+      color: '#d4a574',
     },
-    { 
-      label: 'Ingredientes', 
-      value: ingredients.length.toString(),
+    {
+      label: 'Ingredientes',
+      value: String(ingredients.length),
       icon: 'cube-outline',
-      color: '#3498db'
+      color: '#3498db',
     },
-    { 
-      label: 'Stock Bajo', 
-      value: lowStockCount.toString(),
+    {
+      label: 'Stock Bajo',
+      value: String(lowStockCount),
       icon: 'warning-outline',
-      color: lowStockCount > 0 ? '#c0392b' : '#27ae60'
-    },
-    { 
-      label: 'Entradas', 
-      value: `$${totalEntries.toFixed(2)}`,
-      icon: 'arrow-down-circle-outline',
-      color: '#27ae60'
-    },
-    { 
-      label: 'Salidas', 
-      value: `$${totalExits.toFixed(2)}`,
-      icon: 'arrow-up-circle-outline',
-      color: '#c0392b'
-    },
-    { 
-      label: 'Resultado', 
-      value: `$${netResult.toFixed(2)}`,
-      icon: 'trending-up-outline',
-      color: netResult >= 0 ? '#27ae60' : '#c0392b'
+      color: lowStockCount > 0 ? '#c0392b' : '#27ae60',
     },
   ];
 
   const recentMovements = movements.slice(-10).reverse();
-  const recentJournal = entries.slice(0, 10);
 
   return (
     <SafeAreaView style={styles.container}>
       <Text style={styles.title}>📊 Reportes y Análisis</Text>
 
-      {/* Period Selector */}
       <View style={styles.periodSelector}>
         {(['day', 'week', 'month'] as const).map((p) => (
           <TouchableOpacity
@@ -104,7 +79,6 @@ export const ReportsScreen: React.FC = () => {
         ))}
       </View>
 
-      {/* Stats Grid */}
       <View style={styles.statsGrid}>
         {stats.map((stat, index) => (
           <View key={index} style={styles.statCard}>
@@ -117,84 +91,63 @@ export const ReportsScreen: React.FC = () => {
         ))}
       </View>
 
-      {/* Low Stock Alert */}
       {lowStockCount > 0 && (
         <View style={styles.alertCard}>
           <Ionicons name="alert-circle" size={24} color="#c0392b" />
           <View style={styles.alertContent}>
             <Text style={styles.alertTitle}>⚠️ Alerta de Stock Bajo</Text>
             <Text style={styles.alertText}>
-              {lowStockCount} ingrediente{lowStockCount > 1 ? 's' : ''} necesita{lowStockCount === 1 ? '' : 'n'} reposición
+              {lowStockCount} ingrediente{lowStockCount > 1 ? 's' : ''} necesita
+              {lowStockCount === 1 ? '' : 'n'} reposición
             </Text>
           </View>
         </View>
       )}
 
-      {/* Recent Movements */}
       <Text style={styles.sectionTitle}>📋 Movimientos Recientes</Text>
       <ScrollView style={styles.movementsList}>
         {recentMovements.length === 0 ? (
           <Text style={styles.emptyText}>No hay movimientos registrados</Text>
         ) : (
           recentMovements.map((mov: any) => {
-            const ing = ingredients.find((i: any) => i.id === mov.ingredientId);
+            const ing = ingredients.find(
+              (i: any) => String(i.id ?? i._id) === String(mov.ingredientId)
+            );
+
             return (
-              <View key={mov.id} style={styles.movementItem}>
+              <View key={String(mov.id ?? mov._id ?? Math.random())} style={styles.movementItem}>
                 <View style={styles.movementIcon}>
-                  <Ionicons 
-                    name={mov.type === 'sale' ? 'cart-outline' : mov.type === 'restock' ? 'add-circle-outline' : 'sync-outline'} 
-                    size={20} 
-                    color={mov.quantity < 0 ? '#c0392b' : '#27ae60'} 
+                  <Ionicons
+                    name={
+                      mov.type === 'sale'
+                        ? 'cart-outline'
+                        : mov.type === 'restock'
+                        ? 'add-circle-outline'
+                        : 'sync-outline'
+                    }
+                    size={20}
+                    color={Number(mov.quantity || 0) < 0 ? '#c0392b' : '#27ae60'}
                   />
                 </View>
                 <View style={styles.movementInfo}>
                   <Text style={styles.movementTitle}>{ing?.name || 'Desconocido'}</Text>
-                  <Text style={styles.movementDetail}>{mov.reason}</Text>
+                  <Text style={styles.movementDetail}>{mov.reason || 'Movimiento'}</Text>
                   <Text style={styles.movementDate}>
-                    {new Date(mov.date).toLocaleString()}
+                    {mov.date ? new Date(mov.date).toLocaleString() : ''}
                   </Text>
                 </View>
-                <Text style={[
-                  styles.movementQty,
-                  { color: mov.quantity < 0 ? '#c0392b' : '#27ae60' }
-                ]}>
-                  {mov.quantity > 0 ? '+' : ''}{mov.quantity} {ing?.unit}
+                <Text
+                  style={[
+                    styles.movementQty,
+                    { color: Number(mov.quantity || 0) < 0 ? '#c0392b' : '#27ae60' },
+                  ]}
+                >
+                  {Number(mov.quantity || 0) > 0 ? '+' : ''}
+                  {mov.quantity} {ing?.unit || ''}
                 </Text>
               </View>
             );
           })
-        )}
-      </ScrollView>
-
-      <Text style={styles.sectionTitle}>📒 Diario Contable</Text>
-      <ScrollView style={styles.movementsList}>
-        {recentJournal.length === 0 ? (
-          <Text style={styles.emptyText}>No hay asientos contables registrados</Text>
-        ) : (
-          recentJournal.map((entry: any) => (
-            <View key={entry.id} style={styles.movementItem}>
-              <View style={styles.movementIcon}>
-                <Ionicons
-                  name={entry.direction === 'in' ? 'trending-down-outline' : 'trending-up-outline'}
-                  size={20}
-                  color={entry.direction === 'in' ? '#27ae60' : '#c0392b'}
-                />
-              </View>
-              <View style={styles.movementInfo}>
-                <Text style={styles.movementTitle}>{entry.description}</Text>
-                <Text style={styles.movementDetail}>{entry.category}</Text>
-                <Text style={styles.movementDate}>{new Date(entry.date).toLocaleString()}</Text>
-              </View>
-              <Text
-                style={[
-                  styles.movementQty,
-                  { color: entry.direction === 'in' ? '#27ae60' : '#c0392b' }
-                ]}
-              >
-                {entry.direction === 'in' ? '+' : '-'}${entry.amount.toFixed(2)}
-              </Text>
-            </View>
-          ))
         )}
       </ScrollView>
     </SafeAreaView>
@@ -202,10 +155,7 @@ export const ReportsScreen: React.FC = () => {
 };
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#1a0f0a',
-  },
+  container: { flex: 1, backgroundColor: '#1a0f0a' },
   title: {
     fontSize: 28,
     fontWeight: 'bold',
@@ -282,9 +232,7 @@ const styles = StyleSheet.create({
     borderColor: '#c0392b',
     gap: 12,
   },
-  alertContent: {
-    flex: 1,
-  },
+  alertContent: { flex: 1 },
   alertTitle: {
     color: '#c0392b',
     fontWeight: 'bold',
@@ -329,9 +277,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginRight: 12,
   },
-  movementInfo: {
-    flex: 1,
-  },
+  movementInfo: { flex: 1 },
   movementTitle: {
     color: '#f5f1e8',
     fontWeight: '600',

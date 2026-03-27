@@ -1,17 +1,15 @@
 import { createSlice, PayloadAction, createAsyncThunk } from '@reduxjs/toolkit';
-import { consumeIngredients } from './inventorySlice';
-import { recordSale } from './accountingSlice';
+import { api } from '../api/client';
 
 export interface CartItem {
   id: string;
   name: string;
   price: number;
-  cost: number;
   quantity: number;
-  icon: string;
-  stock: number;
-  hasRecipe: boolean;
-  recipeId?: string;
+  icon?: string;
+  stock?: number;
+  hasRecipe?: boolean;
+  recipeId?: string | null;
 }
 
 interface CartState {
@@ -37,7 +35,11 @@ const initialState: CartState = {
 };
 
 const calculateTotals = (items: CartItem[]) => {
-  const subtotal = items.reduce((sum, item) => sum + item.price * item.quantity, 0);
+  const subtotal = items.reduce(
+    (sum, item) => sum + Number(item.price || 0) * Number(item.quantity || 0),
+    0
+  );
+
   return {
     subtotal,
     discount: 0,
@@ -46,52 +48,42 @@ const calculateTotals = (items: CartItem[]) => {
   };
 };
 
-// Thunk para procesar venta con descuento de inventario
 export const processSale = createAsyncThunk(
   'cart/processSale',
-  async (payload: { paymentMethod: string; customerName?: string }, { getState, dispatch }) => {
-    const state = getState() as {
-      cart: CartState;
-      recipes: { recipes: Array<{ productId: string; items: Array<{ ingredientId: string; quantity: number }> }> };
-      inventory: { ingredients: Array<{ id: string; stock: number; name: string; costPerUnit?: number }> };
-    };
-    const { items } = state.cart;
-    const saleId = `SALE-${Date.now()}`;
-    let totalCost = 0;
-    
-    // Verificar stock de ingredientes para todos los items
-    for (const item of items) {
-      if (item.hasRecipe) {
-        const recipe = state.recipes.recipes.find((r) => r.productId === item.id);
-        if (!recipe) continue;
+  async (
+    payload: {
+      paymentMethod: string;
+      customerName?: string;
+      discount?: number;
+    },
+    { getState }
+  ) => {
+    const state = getState() as { cart: CartState };
+    const { items, totals } = state.cart;
 
-        for (const recipeItem of recipe.items) {
-          const ingredient = state.inventory.ingredients.find((ing) => ing.id === recipeItem.ingredientId);
-          const needed = recipeItem.quantity * item.quantity;
-
-          if (!ingredient || ingredient.stock < needed) {
-            throw new Error(`No hay suficiente stock para: ${item.name}`);
-          }
-
-          totalCost += (ingredient.costPerUnit || 0) * needed;
-        }
-
-        dispatch(consumeIngredients({
-          recipeItems: recipe.items,
-          quantity: item.quantity,
-          saleId,
-          productName: item.name,
-        }));
-      }
+    if (!items.length) {
+      throw new Error('No hay productos en el carrito');
     }
 
-    dispatch(recordSale({
-      saleId,
-      revenue: state.cart.totals.total,
-      cogs: totalCost,
-    }));
-    
-    return { success: true, timestamp: new Date().toISOString(), saleId };
+    const salePayload = {
+      paymentMethod: payload.paymentMethod,
+      customerName: payload.customerName || undefined,
+      discount: Number(payload.discount || 0),
+      subtotal: totals.subtotal,
+      tax: totals.tax,
+      total: totals.total,
+      items: items.map((item) => ({
+        productId: item.id,
+        recipeId: item.recipeId || null,
+        name: item.name,
+        price: item.price,
+        quantity: item.quantity,
+      })),
+      createdAt: new Date().toISOString(),
+    };
+
+    const response = await api.createSale(salePayload);
+    return response;
   }
 );
 
@@ -100,39 +92,51 @@ const cartSlice = createSlice({
   initialState,
   reducers: {
     addToCart: (state, action: PayloadAction<any>) => {
-      const existing = state.items.find((item: any) => item.id === action.payload.id);
+      const incomingId = String(action.payload.id ?? action.payload._id);
+      const existing = state.items.find((item) => String(item.id) === incomingId);
+
+      const incomingStock =
+        action.payload.stock === undefined || action.payload.stock === null
+          ? Number.MAX_SAFE_INTEGER
+          : Number(action.payload.stock);
+
       if (existing) {
-        if (existing.quantity < existing.stock) {
+        if (existing.quantity < incomingStock) {
           existing.quantity += 1;
         }
       } else {
-        state.items.push({ ...action.payload, quantity: 1 });
+        state.items.push({
+          ...action.payload,
+          id: incomingId,
+          quantity: 1,
+          stock: incomingStock,
+        });
       }
+
       state.totals = calculateTotals(state.items);
     },
+
     removeFromCart: (state, action: PayloadAction<string>) => {
-      state.items = state.items.filter((item: any) => item.id !== action.payload);
+      state.items = state.items.filter((item) => String(item.id) !== String(action.payload));
       state.totals = calculateTotals(state.items);
     },
+
     updateQuantity: (state, action: PayloadAction<{ id: string; qty: number }>) => {
-      const item = state.items.find((item: any) => item.id === action.payload.id);
+      const item = state.items.find((item) => String(item.id) === String(action.payload.id));
       if (item) {
-        item.quantity = Math.max(1, Math.min(action.payload.qty, item.stock));
+        const maxStock =
+          item.stock === undefined || item.stock === null
+            ? Number.MAX_SAFE_INTEGER
+            : Number(item.stock);
+
+        item.quantity = Math.max(1, Math.min(Number(action.payload.qty), maxStock));
       }
       state.totals = calculateTotals(state.items);
     },
+
     clearCart: (state) => {
       state.items = [];
       state.totals = { subtotal: 0, discount: 0, tax: 0, total: 0 };
-    },
-    setDiscount: (state, action: PayloadAction<{ type: 'percentage' | 'fixed'; value: number }>) => {
-      const { type, value } = action.payload;
-      if (type === 'percentage') {
-        state.totals.discount = state.totals.subtotal * (value / 100);
-      } else {
-        state.totals.discount = Math.min(value, state.totals.subtotal);
-      }
-      state.totals.total = (state.totals.subtotal - state.totals.discount) * 1.16;
     },
   },
   extraReducers: (builder) => {
@@ -151,5 +155,7 @@ const cartSlice = createSlice({
   },
 });
 
-export const { addToCart, removeFromCart, updateQuantity, clearCart, setDiscount } = cartSlice.actions;
+export const { addToCart, removeFromCart, updateQuantity, clearCart } =
+  cartSlice.actions;
+
 export default cartSlice.reducer;

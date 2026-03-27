@@ -73,16 +73,16 @@ class ApiClient {
   }
 
   async bootstrapAdmin(payload: {
-    username: string;
-    email: string;
-    password: string;
-    name: string;
-  }) {
-    return this.request('/auth/bootstrap', {
-      method: 'POST',
-      body: JSON.stringify(payload),
-    });
-  }
+  username: string;
+  email: string;
+  name: string;
+  password: string;
+}) {
+  return this.request('/auth/bootstrap-admin', {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  });
+}
 
   async registerUser(payload: {
     username: string;
@@ -164,6 +164,7 @@ async deductIngredients(recipeId: string, quantity: number, saleId: string) {
     return this.request('/sales/dashboard/stats');
   }
 }
+
 
 export const api = new ApiClient(API_URL);
 export default api;

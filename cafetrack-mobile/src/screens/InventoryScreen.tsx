@@ -10,6 +10,7 @@ import {
   TextInput,
   Modal,
   Image,
+  Platform,
 } from 'react-native';
 import { useSelector, useDispatch } from 'react-redux';
 import { Ionicons } from '@expo/vector-icons';
@@ -17,7 +18,6 @@ import type { AppDispatch } from '../store';
 import { RecipeModal } from '../components/RecipeModal';
 import {
   addIngredient,
-  updateIngredient,
   deleteIngredient,
   restockIngredient,
   adjustStock,
@@ -29,15 +29,15 @@ export const InventoryScreen: React.FC = () => {
   const dispatch = useDispatch<AppDispatch>();
   const { ingredients, lowStockAlerts } = useSelector((state: any) => state.inventory);
   const { products, recipes } = useSelector((state: any) => state.recipes);
+
   const entityId = (entity: any) => String(entity?.id ?? entity?._id ?? '');
-  
+
   const [activeTab, setActiveTab] = useState<'ingredients' | 'products'>('ingredients');
   const [showRecipeModal, setShowRecipeModal] = useState(false);
   const [showIngredientModal, setShowIngredientModal] = useState(false);
-  const [editingProduct, setEditingProduct] = useState(null);
+  const [editingProduct, setEditingProduct] = useState<any>(null);
   const [searchQuery, setSearchQuery] = useState('');
 
-  // Formulario de ingrediente
   const [ingName, setIngName] = useState('');
   const [ingUnit, setIngUnit] = useState('g');
   const [ingStock, setIngStock] = useState('');
@@ -52,21 +52,28 @@ export const InventoryScreen: React.FC = () => {
       return;
     }
 
-    dispatch(addIngredient({
-      name: ingName,
-      unit: ingUnit as any,
-      stock: parseFloat(ingStock),
-      minStock: parseFloat(ingMinStock),
-      costPerUnit: parseFloat(ingCost),
-    }));
-    dispatch(addJournalEntry({
-      direction: 'in',
-      category: 'inventory',
-      description: `Alta ingrediente: ${ingName}`,
-      amount: parseFloat(ingStock) * parseFloat(ingCost),
-    }));
+    const stock = parseFloat(ingStock);
+    const cost = parseFloat(ingCost);
 
-    // Reset
+    dispatch(
+      addIngredient({
+        name: ingName,
+        unit: ingUnit as any,
+        stock,
+        minStock: parseFloat(ingMinStock),
+        costPerUnit: cost,
+      }) as any
+    );
+
+    dispatch(
+      addJournalEntry({
+        direction: 'in',
+        category: 'inventory',
+        description: `Alta ingrediente: ${ingName}`,
+        amount: stock * cost,
+      }) as any
+    );
+
     setIngName('');
     setIngStock('');
     setIngMinStock('');
@@ -85,17 +92,22 @@ export const InventoryScreen: React.FC = () => {
           onPress: (value) => {
             const qty = parseFloat(value || '0');
             if (qty > 0) {
-              dispatch(restockIngredient({
-                ingredientId: ingredient.id,
-                quantity: qty,
-                reason: 'Reposición manual',
-              }));
-              dispatch(addJournalEntry({
-                direction: 'in',
-                category: 'inventory',
-                description: `Reposición: ${ingredient.name}`,
-                amount: qty * (ingredient.costPerUnit || 0),
-              }));
+              dispatch(
+                restockIngredient({
+                  ingredientId: entityId(ingredient),
+                  quantity: qty,
+                  reason: 'Reposición manual',
+                }) as any
+              );
+
+              dispatch(
+                addJournalEntry({
+                  direction: 'in',
+                  category: 'inventory',
+                  description: `Reposición: ${ingredient.name}`,
+                  amount: qty * (ingredient.costPerUnit || 0),
+                }) as any
+              );
             }
           },
         },
@@ -105,14 +117,15 @@ export const InventoryScreen: React.FC = () => {
   };
 
   const handleDeleteProduct = (product: any) => {
-    const productId = String(product?.id ?? product?._id ?? '');
+    const productId = entityId(product);
+
     if (!productId) {
       Alert.alert('Error', 'No se pudo identificar el producto a eliminar');
       return;
     }
 
     const confirmDelete = () => {
-      dispatch(deleteProduct(productId));
+      dispatch(deleteProduct(productId) as any);
       Alert.alert('Eliminado', `${product.name} fue eliminado correctamente.`);
     };
 
@@ -134,16 +147,16 @@ export const InventoryScreen: React.FC = () => {
   };
 
   const filteredIngredients = ingredients.filter((i: any) =>
-    i.name.toLowerCase().includes(searchQuery.toLowerCase())
+    String(i.name || '').toLowerCase().includes(searchQuery.toLowerCase())
   );
 
   const filteredProducts = products.filter((p: any) =>
-    p.name.toLowerCase().includes(searchQuery.toLowerCase())
+    String(p.name || '').toLowerCase().includes(searchQuery.toLowerCase())
   );
 
   const renderIngredientItem = ({ item }: { item: any }) => {
-    const isLowStock = lowStockAlerts.includes(item.id);
-    
+    const isLowStock = lowStockAlerts.includes(entityId(item));
+
     return (
       <View style={[styles.ingredientCard, isLowStock && styles.lowStockCard]}>
         <View style={styles.ingredientHeader}>
@@ -152,14 +165,22 @@ export const InventoryScreen: React.FC = () => {
             <Text style={styles.ingredientUnit}>Unidad: {item.unit}</Text>
           </View>
           <View style={[styles.stockBadge, isLowStock && styles.lowStockBadge]}>
-            <Text style={styles.stockText}>{item.stock} {item.unit}</Text>
+            <Text style={styles.stockText}>
+              {item.stock} {item.unit}
+            </Text>
           </View>
         </View>
 
         <View style={styles.ingredientDetails}>
-          <Text style={styles.detailText}>Stock mínimo: {item.minStock} {item.unit}</Text>
-          <Text style={styles.detailText}>Costo: ${item.costPerUnit.toFixed(3)}/{item.unit}</Text>
-          <Text style={styles.detailText}>Valor total: ${(item.stock * item.costPerUnit).toFixed(2)}</Text>
+          <Text style={styles.detailText}>
+            Stock mínimo: {item.minStock} {item.unit}
+          </Text>
+          <Text style={styles.detailText}>
+            Costo: ${Number(item.costPerUnit || 0).toFixed(3)}/{item.unit}
+          </Text>
+          <Text style={styles.detailText}>
+            Valor total: ${(Number(item.stock || 0) * Number(item.costPerUnit || 0)).toFixed(2)}
+          </Text>
         </View>
 
         {isLowStock && (
@@ -174,25 +195,31 @@ export const InventoryScreen: React.FC = () => {
             <Ionicons name="add-circle" size={20} color="#27ae60" />
             <Text style={styles.actionText}>Reponer</Text>
           </TouchableOpacity>
-          
-          <TouchableOpacity 
+
+          <TouchableOpacity
             style={styles.actionBtn}
             onPress={() => {
               Alert.prompt('Ajuste', 'Nuevo stock:', (value) => {
                 const newStock = parseFloat(value || '0');
                 if (!isNaN(newStock)) {
-                  const diff = newStock - item.stock;
-                  dispatch(adjustStock({
-                    ingredientId: item.id,
-                    newStock,
-                    reason: 'Ajuste manual',
-                  }));
-                  dispatch(addJournalEntry({
-                    direction: diff >= 0 ? 'in' : 'out',
-                    category: 'adjustment',
-                    description: `Ajuste inventario: ${item.name}`,
-                    amount: Math.abs(diff) * (item.costPerUnit || 0),
-                  }));
+                  const diff = newStock - Number(item.stock || 0);
+
+                  dispatch(
+                    adjustStock({
+                      ingredientId: entityId(item),
+                      newStock,
+                      reason: 'Ajuste manual',
+                    }) as any
+                  );
+
+                  dispatch(
+                    addJournalEntry({
+                      direction: diff >= 0 ? 'in' : 'out',
+                      category: 'adjustment',
+                      description: `Ajuste inventario: ${item.name}`,
+                      amount: Math.abs(diff) * Number(item.costPerUnit || 0),
+                    }) as any
+                  );
                 }
               });
             }}
@@ -201,12 +228,16 @@ export const InventoryScreen: React.FC = () => {
             <Text style={styles.actionText}>Ajustar</Text>
           </TouchableOpacity>
 
-          <TouchableOpacity 
+          <TouchableOpacity
             style={styles.actionBtn}
             onPress={() => {
               Alert.alert('Eliminar', `¿Eliminar ${item.name}?`, [
                 { text: 'Cancelar', style: 'cancel' },
-                { text: 'Eliminar', style: 'destructive', onPress: () => dispatch(deleteIngredient(item.id)) },
+                {
+                  text: 'Eliminar',
+                  style: 'destructive',
+                  onPress: () => dispatch(deleteIngredient(entityId(item)) as any),
+                },
               ]);
             }}
           >
@@ -219,11 +250,14 @@ export const InventoryScreen: React.FC = () => {
   };
 
   const renderProductItem = ({ item }: { item: any }) => {
-    const recipe = getRecipeForProduct(item.id);
-    const totalCost = recipe?.items.reduce((sum: number, ri: any) => {
-      const ing = ingredients.find((i: any) => entityId(i) === String(ri.ingredientId));
-      return sum + (ing?.costPerUnit || 0) * ri.quantity;
-    }, 0) || 0;
+    const productId = entityId(item);
+    const recipe = getRecipeForProduct(productId);
+
+    const totalCost =
+      recipe?.items.reduce((sum: number, ri: any) => {
+        const ing = ingredients.find((i: any) => entityId(i) === String(ri.ingredientId));
+        return sum + Number(ing?.costPerUnit || 0) * Number(ri.quantity || 0);
+      }, 0) || 0;
 
     return (
       <View style={styles.productCard}>
@@ -233,12 +267,14 @@ export const InventoryScreen: React.FC = () => {
           ) : (
             <Text style={styles.productIcon}>{item.icon}</Text>
           )}
+
           <View style={styles.productInfo}>
             <Text style={styles.productName}>{item.name}</Text>
             <Text style={styles.productCategory}>{item.category}</Text>
           </View>
+
           <View style={styles.productPrice}>
-            <Text style={styles.priceText}>${item.price.toFixed(2)}</Text>
+            <Text style={styles.priceText}>${Number(item.price || 0).toFixed(2)}</Text>
             <Text style={styles.costText}>Costo: ${totalCost.toFixed(2)}</Text>
           </View>
         </View>
@@ -247,6 +283,7 @@ export const InventoryScreen: React.FC = () => {
           <View style={styles.recipePreview}>
             <Text style={styles.recipeTitle}>📝 Receta ({recipe.preparationTime} min):</Text>
             {recipe.image ? <Image source={{ uri: recipe.image }} style={styles.recipeImage} /> : null}
+
             {recipe.items.map((ri: any, idx: number) => {
               const ing = ingredients.find((i: any) => entityId(i) === String(ri.ingredientId));
               return (
@@ -255,14 +292,19 @@ export const InventoryScreen: React.FC = () => {
                 </Text>
               );
             })}
+
             <Text style={styles.marginText}>
-              Margen: {((item.price - totalCost) / item.price * 100).toFixed(1)}%
+              Margen:{' '}
+              {Number(item.price || 0) > 0
+                ? ((Number(item.price || 0) - totalCost) / Number(item.price || 0) * 100).toFixed(1)
+                : '0.0'}
+              %
             </Text>
           </View>
         )}
 
         <View style={styles.productActions}>
-          <TouchableOpacity 
+          <TouchableOpacity
             style={styles.productActionBtn}
             onPress={() => {
               setEditingProduct(item);
@@ -272,25 +314,26 @@ export const InventoryScreen: React.FC = () => {
             <Ionicons name="create-outline" size={18} color="#d4a574" />
             <Text style={styles.productActionText}>Editar</Text>
           </TouchableOpacity>
-          
-          <TouchableOpacity 
+
+          <TouchableOpacity
             style={[styles.productActionBtn, !item.isActive && styles.inactiveBtn]}
             onPress={() => {
-              dispatch(toggleProductActive(item.id));
+              dispatch(toggleProductActive(productId) as any);
               Alert.alert(
                 'Estado actualizado',
                 item.isActive ? `${item.name} ahora está inactivo` : `${item.name} ahora está activo`
               );
             }}
           >
-            <Ionicons name={item.isActive ? 'eye' : 'eye-off'} size={18} color={item.isActive ? '#27ae60' : '#8b6f4e'} />
+            <Ionicons
+              name={item.isActive ? 'eye' : 'eye-off'}
+              size={18}
+              color={item.isActive ? '#27ae60' : '#8b6f4e'}
+            />
             <Text style={styles.productActionText}>{item.isActive ? 'Activo' : 'Inactivo'}</Text>
           </TouchableOpacity>
 
-          <TouchableOpacity 
-            style={styles.productActionBtn}
-            onPress={() => handleDeleteProduct(item)}
-          >
+          <TouchableOpacity style={styles.productActionBtn} onPress={() => handleDeleteProduct(item)}>
             <Ionicons name="trash-outline" size={18} color="#c0392b" />
             <Text style={styles.productActionText}>Eliminar</Text>
           </TouchableOpacity>
@@ -303,40 +346,50 @@ export const InventoryScreen: React.FC = () => {
     <SafeAreaView style={styles.container}>
       <Text style={styles.headerTitle}>📦 Gestión de Inventario</Text>
 
-      {/* Tabs */}
       <View style={styles.tabContainer}>
-        <TouchableOpacity 
+        <TouchableOpacity
           style={[styles.tab, activeTab === 'ingredients' && styles.tabActive]}
           onPress={() => setActiveTab('ingredients')}
         >
-          <Ionicons name="cube" size={20} color={activeTab === 'ingredients' ? '#1a0f0a' : '#d4a574'} />
-          <Text style={[styles.tabText, activeTab === 'ingredients' && styles.tabTextActive]}>Ingredientes</Text>
+          <Ionicons
+            name="cube"
+            size={20}
+            color={activeTab === 'ingredients' ? '#1a0f0a' : '#d4a574'}
+          />
+          <Text style={[styles.tabText, activeTab === 'ingredients' && styles.tabTextActive]}>
+            Ingredientes
+          </Text>
         </TouchableOpacity>
-        <TouchableOpacity 
+
+        <TouchableOpacity
           style={[styles.tab, activeTab === 'products' && styles.tabActive]}
           onPress={() => setActiveTab('products')}
         >
-          <Ionicons name="cafe" size={20} color={activeTab === 'products' ? '#1a0f0a' : '#d4a574'} />
-          <Text style={[styles.tabText, activeTab === 'products' && styles.tabTextActive]}>Productos</Text>
+          <Ionicons
+            name="cafe"
+            size={20}
+            color={activeTab === 'products' ? '#1a0f0a' : '#d4a574'}
+          />
+          <Text style={[styles.tabText, activeTab === 'products' && styles.tabTextActive]}>
+            Productos
+          </Text>
         </TouchableOpacity>
       </View>
 
-      {/* Search */}
       <View style={styles.searchContainer}>
         <Ionicons name="search" size={20} color="#8b6f4e" />
         <TextInput
           style={styles.searchInput}
-          placeholder={activeTab === 'ingredients' ? "Buscar ingrediente..." : "Buscar producto..."}
+          placeholder={activeTab === 'ingredients' ? 'Buscar ingrediente...' : 'Buscar producto...'}
           placeholderTextColor="#8b6f4e"
           value={searchQuery}
           onChangeText={setSearchQuery}
         />
       </View>
 
-      {/* Add Button */}
-      <TouchableOpacity 
+      <TouchableOpacity
         style={styles.addButton}
-        onPress={() => activeTab === 'ingredients' ? setShowIngredientModal(true) : setShowRecipeModal(true)}
+        onPress={() => (activeTab === 'ingredients' ? setShowIngredientModal(true) : setShowRecipeModal(true))}
       >
         <Ionicons name="add" size={24} color="#1a0f0a" />
         <Text style={styles.addButtonText}>
@@ -344,26 +397,24 @@ export const InventoryScreen: React.FC = () => {
         </Text>
       </TouchableOpacity>
 
-      {/* List */}
       {activeTab === 'ingredients' ? (
         <FlatList
           data={filteredIngredients}
-          keyExtractor={(item) => item.id}
+          keyExtractor={(item) => String(item.id ?? item._id)}
           renderItem={renderIngredientItem}
           contentContainerStyle={styles.list}
         />
       ) : (
         <FlatList
           data={filteredProducts}
-          keyExtractor={(item) => item.id}
+          keyExtractor={(item) => String(item.id ?? item._id)}
           renderItem={renderProductItem}
           contentContainerStyle={styles.list}
         />
       )}
 
-      {/* Modals */}
-      <RecipeModal 
-        visible={showRecipeModal} 
+      <RecipeModal
+        visible={showRecipeModal}
         onClose={() => {
           setShowRecipeModal(false);
           setEditingProduct(null);
@@ -371,12 +422,11 @@ export const InventoryScreen: React.FC = () => {
         editingProduct={editingProduct}
       />
 
-      {/* Ingredient Modal */}
       <Modal visible={showIngredientModal} transparent animationType="slide">
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
             <Text style={styles.modalTitle}>➕ Nuevo Ingrediente</Text>
-            
+
             <Text style={styles.inputLabel}>Nombre</Text>
             <TextInput
               style={styles.modalInput}
@@ -388,7 +438,7 @@ export const InventoryScreen: React.FC = () => {
 
             <Text style={styles.inputLabel}>Unidad</Text>
             <View style={styles.unitSelector}>
-              {units.map(u => (
+              {units.map((u) => (
                 <TouchableOpacity
                   key={u}
                   style={[styles.unitChip, ingUnit === u && styles.unitChipActive]}
@@ -520,7 +570,6 @@ const styles = StyleSheet.create({
     padding: 15,
     paddingBottom: 100,
   },
-  // Ingredient Card
   ingredientCard: {
     backgroundColor: '#2c1810',
     borderRadius: 16,
@@ -601,7 +650,6 @@ const styles = StyleSheet.create({
     color: '#f5f1e8',
     fontSize: 12,
   },
-  // Product Card
   productCard: {
     backgroundColor: '#2c1810',
     borderRadius: 16,
@@ -701,7 +749,6 @@ const styles = StyleSheet.create({
   inactiveBtn: {
     opacity: 0.6,
   },
-  // Modal
   modalOverlay: {
     flex: 1,
     backgroundColor: 'rgba(0,0,0,0.9)',

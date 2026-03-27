@@ -1,182 +1,147 @@
-import { createSlice, PayloadAction } from '@reduxjs/toolkit';
-import { Recipe, RecipeItem, Product } from '../types';
+import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
+import { api } from '../api/client';
 
-interface RecipesState {
-  products: Product[];
-  recipes: Recipe[];
-}
+export const fetchProducts = createAsyncThunk('recipes/fetchProducts', async () => {
+  const response = await api.getProducts();
+  return response.data;
+});
 
-const initialState: RecipesState = {
-  products: [
-    { id: 'prod-1', name: 'Espresso', price: 2.50, category: 'coffee', icon: '☕', isActive: true, hasRecipe: true, recipeId: 'rec-1' },
-    { id: 'prod-2', name: 'Cappuccino', price: 3.50, category: 'coffee', icon: '☕', isActive: true, hasRecipe: true, recipeId: 'rec-2' },
-    { id: 'prod-3', name: 'Latte', price: 3.75, category: 'coffee', icon: '☕', isActive: true, hasRecipe: true, recipeId: 'rec-3' },
-    { id: 'prod-4', name: 'Americano', price: 2.75, category: 'coffee', icon: '☕', isActive: true, hasRecipe: true, recipeId: 'rec-4' },
-    { id: 'prod-5', name: 'Mocha', price: 4.00, category: 'coffee', icon: '☕', isActive: true, hasRecipe: true, recipeId: 'rec-5' },
-    { id: 'prod-6', name: 'Té Helado', price: 2.50, category: 'drink', icon: '🧊', isActive: true, hasRecipe: true, recipeId: 'rec-6' },
-    { id: 'prod-7', name: 'Croissant', price: 2.75, category: 'pastry', icon: '🥐', isActive: true, hasRecipe: true, recipeId: 'rec-7' },
-    { id: 'prod-8', name: 'Sandwich', price: 5.50, category: 'food', icon: '🥪', isActive: true, hasRecipe: true, recipeId: 'rec-8' },
-  ],
-  recipes: [
-    // Espresso: 18g café, 30ml agua
-    {
-      productId: 'prod-1',
-      items: [
-        { ingredientId: 'ing-1', quantity: 18 },
-        { ingredientId: 'ing-4', quantity: 30 },
-      ],
-      preparationTime: 2,
-    },
-    // Cappuccino: 18g café, 60ml leche, 60ml espuma
-    {
-      productId: 'prod-2',
-      items: [
-        { ingredientId: 'ing-1', quantity: 18 },
-        { ingredientId: 'ing-2', quantity: 60 },
-        { ingredientId: 'ing-5', quantity: 60 },
-      ],
-      preparationTime: 4,
-    },
-    // Latte: 18g café, 240ml leche, 30ml espuma
-    {
-      productId: 'prod-3',
-      items: [
-        { ingredientId: 'ing-1', quantity: 18 },
-        { ingredientId: 'ing-2', quantity: 240 },
-        { ingredientId: 'ing-5', quantity: 30 },
-      ],
-      preparationTime: 4,
-    },
-    // Americano: 18g café, 240ml agua
-    {
-      productId: 'prod-4',
-      items: [
-        { ingredientId: 'ing-1', quantity: 18 },
-        { ingredientId: 'ing-4', quantity: 240 },
-      ],
-      preparationTime: 2,
-    },
-    // Mocha: 18g café, 200ml leche, 15g chocolate
-    {
-      productId: 'prod-5',
-      items: [
-        { ingredientId: 'ing-1', quantity: 18 },
-        { ingredientId: 'ing-2', quantity: 200 },
-        { ingredientId: 'ing-8', quantity: 15 },
-      ],
-      preparationTime: 5,
-    },
-    // Té Helado: 5g té, 200ml agua, 100g hielo
-    {
-      productId: 'prod-6',
-      items: [
-        { ingredientId: 'ing-10', quantity: 5 },
-        { ingredientId: 'ing-4', quantity: 200 },
-        { ingredientId: 'ing-11', quantity: 100 },
-      ],
-      preparationTime: 3,
-    },
-    // Croissant: 1 unidad masa, 50g mantequilla
-    {
-      productId: 'prod-7',
-      items: [
-        { ingredientId: 'ing-6', quantity: 1 },
-        { ingredientId: 'ing-7', quantity: 50 },
-      ],
-      preparationTime: 0, // Ya preparado
-    },
-    // Sandwich: 1 pan, 100g jamón, 50g queso, 30g lechuga, 40g tomate
-    {
-      productId: 'prod-8',
-      items: [
-        { ingredientId: 'ing-12', quantity: 1 },
-        { ingredientId: 'ing-13', quantity: 100 },
-        { ingredientId: 'ing-14', quantity: 50 },
-        { ingredientId: 'ing-15', quantity: 30 },
-        { ingredientId: 'ing-16', quantity: 40 },
-      ],
-      preparationTime: 5,
-    },
-  ],
-};
+export const createProductWithRecipe = createAsyncThunk(
+  'recipes/createProductWithRecipe',
+  async (payload: any) => {
+    const response = await api.createProduct(payload);
+    return response.data;
+  }
+);
 
-const getEntityId = (entity: any) => String(entity?.id ?? entity?._id ?? '');
+export const updateProductWithRecipe = createAsyncThunk(
+  'recipes/updateProductWithRecipe',
+  async ({ id, payload }: { id: string; payload: any }) => {
+    const response = await api.updateProduct(id, payload);
+    return response.data;
+  }
+);
+
+export const deleteProduct = createAsyncThunk(
+  'recipes/deleteProduct',
+  async (id: string) => {
+    await api.deleteProduct(id);
+    return id;
+  }
+);
 
 const recipesSlice = createSlice({
   name: 'recipes',
-  initialState,
-  reducers: {
-    // Añadir nuevo producto con receta
-    addProduct: (state, action: PayloadAction<{
-      product: Omit<Product, 'id' | 'recipeId'>;
-      recipe: Omit<Recipe, 'productId'>;
-    }>) => {
-      const productId = `prod-${Date.now()}`;
-      const recipeId = `rec-${Date.now()}`;
-      
-      const newProduct: Product = {
-        ...action.payload.product,
-        id: productId,
-        recipeId: recipeId,
-        hasRecipe: true,
-      };
-      
-      const newRecipe: Recipe = {
-        ...action.payload.recipe,
-        productId,
-      };
-      
-      state.products.push(newProduct);
-      state.recipes.push(newRecipe);
-    },
-    
-    // Actualizar producto
-    updateProduct: (state, action: PayloadAction<Partial<Product> & { id: string }>) => {
-      const index = state.products.findIndex((p: any) => getEntityId(p) === String(action.payload.id));
-      if (index !== -1) {
-        state.products[index] = { ...state.products[index], ...action.payload };
-      }
-    },
-    
-    // Eliminar producto y su receta
-    deleteProduct: (state, action: PayloadAction<string>) => {
-      const product = state.products.find((p: any) => getEntityId(p) === String(action.payload));
-      if (product) {
-        const targetId = getEntityId(product);
-        state.products = state.products.filter((p: any) => getEntityId(p) !== targetId);
-        state.recipes = state.recipes.filter((r: any) => String(r.productId) !== targetId);
-      }
-    },
-    
-    // Actualizar receta
-    updateRecipe: (state, action: PayloadAction<{
-      productId: string;
-      items: RecipeItem[];
-      preparationTime?: number;
-      instructions?: string;
-    }>) => {
-      const index = state.recipes.findIndex(r => r.productId === action.payload.productId);
-      if (index !== -1) {
-        state.recipes[index] = { ...state.recipes[index], ...action.payload };
-      }
-    },
-    
-    // Toggle producto activo/inactivo
-    toggleProductActive: (state, action: PayloadAction<string>) => {
-      const product = state.products.find((p: any) => getEntityId(p) === String(action.payload));
-      if (product) {
-        product.isActive = !product.isActive;
-      }
-    },
+  initialState: {
+    products: [],
+    recipes: [],
+    loading: false,
+    error: null,
+  },
+  reducers: {},
+  extraReducers: (builder) => {
+    builder
+      .addCase(fetchProducts.pending, (state: any) => {
+        state.loading = true;
+      })
+      .addCase(fetchProducts.fulfilled, (state: any, action) => {
+        state.loading = false;
+        state.products = action.payload.map((product: any) => ({
+          id: product._id,
+          name: product.name,
+          price: product.price,
+          category: product.category,
+          icon: product.icon,
+          image: product.image,
+          isActive: product.isActive,
+          recipeId: product.recipe?._id || null,
+          hasRecipe: !!product.recipe,
+        }));
+
+        state.recipes = action.payload
+          .filter((product: any) => product.recipe)
+          .map((product: any) => ({
+            id: product.recipe._id,
+            productId: product._id,
+            preparationTime: product.recipe.preparationTime,
+            image: product.recipe.image,
+            items: product.recipe.items.map((item: any) => ({
+              ingredientId: item.ingredient?._id || item.ingredient,
+              quantity: item.quantity,
+            })),
+          }));
+      })
+      .addCase(fetchProducts.rejected, (state: any, action) => {
+        state.loading = false;
+        state.error = action.error.message;
+      })
+      .addCase(createProductWithRecipe.fulfilled, (state: any, action) => {
+        const product = action.payload;
+
+        state.products.unshift({
+          id: product._id,
+          name: product.name,
+          price: product.price,
+          category: product.category,
+          icon: product.icon,
+          image: product.image,
+          isActive: product.isActive,
+          recipeId: product.recipe?._id || null,
+          hasRecipe: !!product.recipe,
+        });
+
+        if (product.recipe) {
+          state.recipes.unshift({
+            id: product.recipe._id,
+            productId: product._id,
+            preparationTime: product.recipe.preparationTime,
+            image: product.recipe.image,
+            items: product.recipe.items.map((item: any) => ({
+              ingredientId: item.ingredient?._id || item.ingredient,
+              quantity: item.quantity,
+            })),
+          });
+        }
+      })
+      .addCase(updateProductWithRecipe.fulfilled, (state: any, action) => {
+        const product = action.payload;
+        const idx = state.products.findIndex((p: any) => p.id === product._id);
+        if (idx !== -1) {
+          state.products[idx] = {
+            id: product._id,
+            name: product.name,
+            price: product.price,
+            category: product.category,
+            icon: product.icon,
+            image: product.image,
+            isActive: product.isActive,
+            recipeId: product.recipe?._id || null,
+            hasRecipe: !!product.recipe,
+          };
+        }
+
+        if (product.recipe) {
+          const ridx = state.recipes.findIndex((r: any) => r.id === product.recipe._id);
+          const normalized = {
+            id: product.recipe._id,
+            productId: product._id,
+            preparationTime: product.recipe.preparationTime,
+            image: product.recipe.image,
+            items: product.recipe.items.map((item: any) => ({
+              ingredientId: item.ingredient?._id || item.ingredient,
+              quantity: item.quantity,
+            })),
+          };
+
+          if (ridx !== -1) state.recipes[ridx] = normalized;
+          else state.recipes.unshift(normalized);
+        }
+      })
+      .addCase(deleteProduct.fulfilled, (state: any, action) => {
+        state.products = state.products.filter((p: any) => p.id !== action.payload);
+        state.recipes = state.recipes.filter((r: any) => r.productId !== action.payload);
+      });
   },
 });
-
-export const {
-  addProduct,
-  updateProduct,
-  deleteProduct,
-  updateRecipe,
-  toggleProductActive,
-} = recipesSlice.actions;
 
 export default recipesSlice.reducer;
