@@ -50,6 +50,11 @@ router.post('/', protect, async (req, res) => {
       };
     }
 
+    const parsedDiscount = {
+      type: discount?.type || 'none',
+      value: Number(discount?.value || 0)
+    };
+
     // Validar stock de ingredientes para cada item
     for (const item of items) {
       const product = await Product.findById(item.productId).session(session);
