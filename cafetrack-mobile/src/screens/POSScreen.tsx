@@ -10,6 +10,7 @@ import {
   StatusBar,
   Alert,
   ScrollView,
+  Platform,
 } from 'react-native';
 import { useSelector, useDispatch } from 'react-redux';
 import { Ionicons } from '@expo/vector-icons';
@@ -21,6 +22,8 @@ import {
 } from '../store/cartSlice';
 import { PaymentModal } from '../components/PaymentModal';
 import { fetchProducts } from '../store/recipesSlice';
+import { logout } from '../store/authSlice';
+import { api } from '../api/client';
 
 const POSScreen: React.FC = () => {
   const dispatch = useDispatch<any>();
@@ -64,7 +67,81 @@ const POSScreen: React.FC = () => {
   };
 
   const handleCloseRegister = () => {
-    setCashRegister({ isOpen: false, openingAmount: 0 });
+    const printCloseReport = async () => {
+      const now = new Date();
+      const startDate = new Date(now);
+      startDate.setHours(0, 0, 0, 0);
+
+      const response = await api.getSales({
+        startDate: startDate.toISOString(),
+        endDate: now.toISOString(),
+        limit: '1000',
+      });
+
+      const sales = response?.data || [];
+      const totals = sales.reduce(
+        (acc: any, sale: any) => {
+          acc.count += 1;
+          acc.subtotal += Number(sale.subtotal || 0);
+          acc.tax += Number(sale.tax || 0);
+          acc.discount += Number(sale.discount?.amount || 0);
+          acc.total += Number(sale.total || 0);
+          const method = sale.paymentMethod || 'unknown';
+          acc.methods[method] = (acc.methods[method] || 0) + Number(sale.total || 0);
+          return acc;
+        },
+        { count: 0, subtotal: 0, discount: 0, tax: 0, total: 0, methods: {} as Record<string, number> }
+      );
+
+      const report = [
+        '📊 REPORTE DE CIERRE DE CAJA',
+        `Fecha: ${now.toLocaleString()}`,
+        '=================================',
+        `Caja abrió: ${cashRegister.isOpen ? 'Sí' : 'No'}`,
+        `Monto apertura: $${Number(cashRegister.openingAmount || 0).toFixed(2)}`,
+        `Ventas del día: ${totals.count}`,
+        `Subtotal: $${totals.subtotal.toFixed(2)}`,
+        `Descuentos: $${totals.discount.toFixed(2)}`,
+        `Impuestos: $${totals.tax.toFixed(2)}`,
+        `Total neto: $${totals.total.toFixed(2)}`,
+        '--- Por método de pago ---',
+        ...Object.entries(totals.methods).map(([method, value]) => `${method}: $${Number(value).toFixed(2)}`),
+        '=================================',
+        'El usuario será deslogueado por cierre de caja.',
+      ].join('\n');
+
+      if (Platform.OS === 'web' && typeof window !== 'undefined') {
+        const printWindow = window.open('', '_blank', 'width=420,height=700');
+        if (printWindow) {
+          printWindow.document.write(`<pre style="font-family: monospace; font-size: 13px; padding: 16px;">${report}</pre>`);
+          printWindow.document.close();
+          printWindow.focus();
+          printWindow.print();
+        } else {
+          Alert.alert('Reporte de cierre', report);
+        }
+      } else {
+        Alert.alert('Reporte de cierre', report);
+      }
+    };
+
+    Alert.alert('Cerrar caja', 'Se imprimirá el reporte del día y se cerrará la sesión. ¿Continuar?', [
+      { text: 'Cancelar', style: 'cancel' },
+      {
+        text: 'Cerrar caja',
+        style: 'destructive',
+        onPress: async () => {
+          try {
+            await printCloseReport();
+          } catch (error: any) {
+            Alert.alert('Advertencia', error?.message || 'No se pudo imprimir reporte de cierre.');
+          } finally {
+            setCashRegister({ isOpen: false, openingAmount: 0 });
+            dispatch(logout());
+          }
+        },
+      },
+    ]);
   };
 
   const handleAddToCart = (product: any) => {
@@ -91,19 +168,66 @@ const POSScreen: React.FC = () => {
   };
 
   const handleConfirmPayment = async (data: any) => {
+    const soldItems = cartItems.map((item: any) => ({ ...item }));
+
+    const printTicket = (sale: any) => {
+      const saleId = sale?.saleId || 'N/A';
+      const createdAt = sale?.createdAt ? new Date(sale.createdAt).toLocaleString() : new Date().toLocaleString();
+      const lines = soldItems
+        .map((item: any) => `${item.quantity} x ${item.name}  $${(Number(item.price || 0) * Number(item.quantity || 0)).toFixed(2)}`)
+        .join('\n');
+      const ticketText = [
+        '☕ CAFE TRACK',
+        `Factura #: ${saleId}`,
+        `Fecha: ${createdAt}`,
+        `Cliente: ${sale?.customer?.name || data?.customer?.name || 'Consumidor final'}`,
+        '----------------------',
+        lines,
+        '----------------------',
+        `Subtotal: $${Number(totals.subtotal || 0).toFixed(2)}`,
+        `IVA: $${Number(totals.tax || 0).toFixed(2)}`,
+        `Total: $${Number(totals.total || 0).toFixed(2)}`,
+        `Pago: ${data?.method || 'cash'}`,
+      ].join('\n');
+
+      if (Platform.OS === 'web' && typeof window !== 'undefined') {
+        const printWindow = window.open('', '_blank', 'width=380,height=600');
+        if (printWindow) {
+          printWindow.document.write(`<pre style="font-family: monospace; font-size: 14px; padding: 16px;">${ticketText}</pre>`);
+          printWindow.document.close();
+          printWindow.focus();
+          printWindow.print();
+          return;
+        }
+      }
+
+      Alert.alert('Ticket de venta', ticketText);
+    };
+
     try {
-      await dispatch(
+      const response = await dispatch(
         processSale({
           paymentMethod: data?.method || 'cash',
           customerName: data?.customer?.name || undefined,
+          customerId: data?.customer?.id || undefined,
           discount: Number(data?.discount || 0),
         })
       ).unwrap();
 
       setShowPaymentModal(false);
+      printTicket(response?.data);
       Alert.alert('Venta completada', 'La venta se registró correctamente.');
     } catch (error: any) {
-      Alert.alert('Error al vender', error?.message || 'No se pudo completar la venta.');
+      const message = String(error?.message || 'No se pudo completar la venta.');
+      if (message.toLowerCase().includes('stock insuficiente')) {
+        Alert.alert(
+          'Stock insuficiente',
+          `${message}\n\nTip: repón ingredientes desde Inventario antes de volver a cobrar.`
+        );
+        return;
+      }
+
+      Alert.alert('Error al vender', message);
     }
   };
 
