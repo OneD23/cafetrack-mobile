@@ -170,6 +170,24 @@ router.post('/', protect, async (req, res) => {
       offlineCreated: !!deviceId
     }], { session });
 
+    if (resolvedCustomerId) {
+      const earnedPoints = Math.max(1, Math.floor(total / 50));
+      await Customer.findByIdAndUpdate(
+        resolvedCustomerId,
+        {
+          $inc: {
+            loyaltyPoints: earnedPoints,
+            totalSpent: total,
+            visits: 1,
+          },
+          $set: {
+            lastPurchaseAt: new Date(),
+          },
+        },
+        { session }
+      );
+    }
+
     await session.commitTransaction();
 
     // Emitir eventos realtime

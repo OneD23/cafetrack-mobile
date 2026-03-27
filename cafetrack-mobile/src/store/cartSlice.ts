@@ -96,7 +96,7 @@ export const processSale = createAsyncThunk(
         message.toLowerCase().includes('fetch') ||
         message.toLowerCase().includes('connection') ||
         message.toLowerCase().includes('token inválido') ||
-.        message.toLowerCase().includes('unauthorized') ||
+        message.toLowerCase().includes('unauthorized') ||
         message.toLowerCase().includes('abort') ||
         message.toLowerCase().includes('timeout');
 

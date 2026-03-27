@@ -163,6 +163,10 @@ const CustomersScreen: React.FC = () => {
             <View style={{ flex: 1 }}>
               <Text style={styles.customerName}>{item.name}</Text>
               <Text style={styles.customerMeta}>ID: {item.customerId}</Text>
+              <Text style={styles.customerMeta}>
+                ⭐ {Number(item.loyaltyPoints || 0)} pts | Visitas: {Number(item.visits || 0)} | Gastado: $
+                {Number(item.totalSpent || 0).toFixed(2)}
+              </Text>
               {item.email ? <Text style={styles.customerMeta}>{item.email}</Text> : null}
             </View>
             <Ionicons name="receipt-outline" size={20} color="#d4a574" />
@@ -182,6 +186,11 @@ const CustomersScreen: React.FC = () => {
           <ScrollView>
             <Text style={styles.sectionTitle}>
               {historyData?.customer?.name} ({historyData?.customer?.customerId})
+            </Text>
+            <Text style={styles.historyStat}>
+              ⭐ Puntos: {Number(historyData?.customer?.loyaltyPoints || 0)} | Visitas:{' '}
+              {Number(historyData?.customer?.visits || 0)} | Gastado histórico: $
+              {Number(historyData?.customer?.totalSpent || 0).toFixed(2)}
             </Text>
             <Text style={styles.historyStat}>
               Compras: {historyData?.totals?.sales || 0} | Total: $

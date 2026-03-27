@@ -23,6 +23,7 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
   const [customerId, setCustomerId] = useState('');
   const [customerName, setCustomerName] = useState('');
   const [loadingCustomer, setLoadingCustomer] = useState(false);
+  const [customerMeta, setCustomerMeta] = useState<{ points: number; visits: number } | null>(null);
 
   const lookupCustomerById = async () => {
     if (!customerId.trim()) return;
@@ -34,6 +35,12 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
       );
       if (found) {
         setCustomerName(found.name || '');
+        setCustomerMeta({
+          points: Number(found.loyaltyPoints || 0),
+          visits: Number(found.visits || 0),
+        });
+      } else {
+        setCustomerMeta(null);
       }
     } catch {
       // Sin internet o token inválido: evitamos romper la UI.
@@ -102,7 +109,10 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
           />
           {loadingCustomer ? <Text style={styles.helperText}>Buscando cliente...</Text> : null}
           {!loadingCustomer && customerName ? (
-            <Text style={styles.helperText}>Cliente detectado: {customerName}</Text>
+            <Text style={styles.helperText}>
+              Cliente detectado: {customerName}
+              {customerMeta ? ` | ⭐ ${customerMeta.points} pts | Visitas ${customerMeta.visits}` : ''}
+            </Text>
           ) : null}
 
           <Text style={styles.sectionTitle}>Cliente (opcional)</Text>

@@ -38,6 +38,25 @@ const customerSchema = new mongoose.Schema(
       type: Boolean,
       default: true,
     },
+    loyaltyPoints: {
+      type: Number,
+      default: 0,
+      min: 0,
+    },
+    totalSpent: {
+      type: Number,
+      default: 0,
+      min: 0,
+    },
+    visits: {
+      type: Number,
+      default: 0,
+      min: 0,
+    },
+    lastPurchaseAt: {
+      type: Date,
+      default: null,
+    },
   },
   { timestamps: true }
 );
