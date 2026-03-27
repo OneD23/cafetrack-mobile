@@ -67,6 +67,30 @@ const POSScreen: React.FC = () => {
   }, [cashRegister]);
 
   useEffect(() => {
+    const restoreCashRegister = async () => {
+      try {
+        const raw = await AsyncStorage.getItem('cash_register_state');
+        if (!raw) return;
+        const saved = JSON.parse(raw);
+        if (saved?.isOpen) {
+          setCashRegister({
+            isOpen: true,
+            openingAmount: Number(saved.openingAmount || 0),
+            openedAt: saved.openedAt || null,
+          });
+        }
+      } catch (error) {
+        console.warn('No se pudo restaurar el estado de caja');
+      }
+    };
+    restoreCashRegister();
+  }, []);
+
+  useEffect(() => {
+    AsyncStorage.setItem('cash_register_state', JSON.stringify(cashRegister));
+  }, [cashRegister]);
+
+  useEffect(() => {
     dispatch(fetchProducts());
   }, [dispatch]);
 
