@@ -44,12 +44,19 @@ class ApiClient {
     
     const config = {
       ...options,
+      signal: options.signal,
       headers: {
         'Content-Type': 'application/json',
         ...(token && { Authorization: `Bearer ${token}` }),
         ...options.headers,
       },
     };
+
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 10000);
+    if (!config.signal) {
+      config.signal = controller.signal;
+    }
 
     try {
       const response = await fetch(`${this.baseUrl}${endpoint}`, config);
@@ -79,6 +86,8 @@ class ApiClient {
 
       console.error('API Error:', error);
       throw error;
+    } finally {
+      clearTimeout(timeoutId);
     }
   }
 

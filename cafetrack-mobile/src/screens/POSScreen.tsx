@@ -41,30 +41,10 @@ const POSScreen: React.FC = () => {
     openedAt: null as string | null,
   });
   const { syncOfflineQueue, pendingCount } = useOfflineSync();
-
-  useEffect(() => {
-    const restoreCashRegister = async () => {
-      try {
-        const raw = await AsyncStorage.getItem('cash_register_state');
-        if (!raw) return;
-        const saved = JSON.parse(raw);
-        if (saved?.isOpen) {
-          setCashRegister({
-            isOpen: true,
-            openingAmount: Number(saved.openingAmount || 0),
-            openedAt: saved.openedAt || null,
-          });
-        }
-      } catch (error) {
-        console.warn('No se pudo restaurar el estado de caja');
-      }
-    };
-    restoreCashRegister();
-  }, []);
-
-  useEffect(() => {
-    AsyncStorage.setItem('cash_register_state', JSON.stringify(cashRegister));
-  }, [cashRegister]);
+  const [isClosingRegister, setIsClosingRegister] = useState(false);
+  const [isOnline, setIsOnline] = useState(
+    typeof navigator !== 'undefined' ? navigator.onLine : true
+  );
 
   useEffect(() => {
     const restoreCashRegister = async () => {
@@ -98,14 +78,20 @@ const POSScreen: React.FC = () => {
     if (typeof window === 'undefined') return;
 
     const handleOnline = async () => {
+      setIsOnline(true);
       const result = await syncOfflineQueue();
       if ((result as any)?.synced > 0) {
         Alert.alert('Sincronización', `Se sincronizaron ${(result as any).synced} operación(es) pendientes.`);
       }
     };
+    const handleOffline = () => setIsOnline(false);
 
     window.addEventListener('online', handleOnline);
-    return () => window.removeEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
   }, [syncOfflineQueue]);
 
   const categories = useMemo(() => {
@@ -179,6 +165,21 @@ const POSScreen: React.FC = () => {
         'El usuario será deslogueado por cierre de caja.',
       ].join('\n');
 
+      try {
+        const rawHistory = await AsyncStorage.getItem('cash_register_history');
+        const history = rawHistory ? JSON.parse(rawHistory) : [];
+        history.unshift({
+          openedAt: cashRegister.openedAt,
+          closedAt: now.toISOString(),
+          openingAmount: Number(cashRegister.openingAmount || 0),
+          totals,
+          report,
+        });
+        await AsyncStorage.setItem('cash_register_history', JSON.stringify(history.slice(0, 30)));
+      } catch (error) {
+        console.warn('No se pudo guardar historial de cierre de caja');
+      }
+
       if (Platform.OS === 'web' && typeof window !== 'undefined') {
         const printWindow = window.open('', '_blank', 'width=420,height=700');
         if (printWindow) {
@@ -194,22 +195,36 @@ const POSScreen: React.FC = () => {
       }
     };
 
-    Alert.alert('Cerrar caja', 'Se imprimirá el reporte del día y se cerrará la sesión. ¿Continuar?', [
+    const closeFlow = async () => {
+      setIsClosingRegister(true);
+      try {
+        await printCloseReport();
+      } catch (error: any) {
+        Alert.alert('Advertencia', error?.message || 'No se pudo imprimir reporte de cierre.');
+      } finally {
+        setCashRegister({ isOpen: false, openingAmount: 0, openedAt: null });
+        await AsyncStorage.removeItem('cash_register_state');
+        setIsClosingRegister(false);
+        dispatch(logout());
+      }
+    };
+
+    if (Platform.OS === 'web' && typeof window !== 'undefined') {
+      const confirmed = window.confirm(
+        'Se imprimirá el reporte del periodo de caja y se cerrará la sesión. ¿Continuar?'
+      );
+      if (confirmed) {
+        closeFlow();
+      }
+      return;
+    }
+
+    Alert.alert('Cerrar caja', 'Se imprimirá el reporte del periodo y se cerrará la sesión. ¿Continuar?', [
       { text: 'Cancelar', style: 'cancel' },
       {
         text: 'Cerrar caja',
         style: 'destructive',
-        onPress: async () => {
-          try {
-            await printCloseReport();
-          } catch (error: any) {
-            Alert.alert('Advertencia', error?.message || 'No se pudo imprimir reporte de cierre.');
-          } finally {
-            setCashRegister({ isOpen: false, openingAmount: 0, openedAt: null });
-            await AsyncStorage.removeItem('cash_register_state');
-            dispatch(logout());
-          }
-        },
+        onPress: closeFlow,
       },
     ]);
   };
@@ -319,10 +334,24 @@ const POSScreen: React.FC = () => {
           <Text style={styles.statTotal}>${totals.total.toFixed(2)}</Text>
         </View>
       </View>
+      <Text style={[styles.networkText, { color: isOnline ? '#27ae60' : '#e67e22' }]}>
+        {isOnline ? '🟢 En línea' : '🟠 Sin internet (modo local)'}
+      </Text>
       {pendingCount > 0 ? (
-        <Text style={styles.pendingSyncText}>
-          ⏳ Pendiente por sincronizar: {pendingCount}
-        </Text>
+        <View style={styles.pendingSyncRow}>
+          <Text style={styles.pendingSyncText}>⏳ Pendiente por sincronizar: {pendingCount}</Text>
+          <TouchableOpacity
+            style={styles.syncNowBtn}
+            onPress={async () => {
+              const result = await syncOfflineQueue();
+              if ((result as any)?.synced > 0) {
+                Alert.alert('Sincronización', `Se sincronizaron ${(result as any).synced} operación(es).`);
+              }
+            }}
+          >
+            <Text style={styles.syncNowText}>Sincronizar</Text>
+          </TouchableOpacity>
+        </View>
       ) : null}
 
       <View style={styles.cashBox}>
@@ -333,11 +362,13 @@ const POSScreen: React.FC = () => {
           style={[
             styles.cashBtn,
             cashRegister.isOpen ? styles.cashBtnClose : styles.cashBtnOpen,
+            isClosingRegister && { opacity: 0.7 },
           ]}
+          disabled={isClosingRegister}
           onPress={cashRegister.isOpen ? handleCloseRegister : handleOpenRegister}
         >
           <Text style={styles.cashBtnText}>
-            {cashRegister.isOpen ? 'Cerrar caja' : 'Abrir caja'}
+            {cashRegister.isOpen ? (isClosingRegister ? 'Cerrando...' : 'Cerrar caja') : 'Abrir caja'}
           </Text>
         </TouchableOpacity>
       </View>
@@ -471,6 +502,20 @@ const styles = StyleSheet.create({
   stats: { alignItems: 'flex-end' },
   stat: { color: '#8b6f4e', fontSize: 12 },
   statTotal: { color: '#d4a574', fontSize: 18, fontWeight: 'bold' },
+  networkText: {
+    fontSize: 12,
+    paddingHorizontal: 16,
+    marginTop: -8,
+    marginBottom: 6,
+    fontWeight: '700',
+  },
+  pendingSyncRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    marginBottom: 4,
+  },
   cashBox: {
     marginHorizontal: 16,
     marginBottom: 12,
@@ -531,8 +576,20 @@ const styles = StyleSheet.create({
   pendingSyncText: {
     color: '#f1c27d',
     fontSize: 12,
-    paddingHorizontal: 16,
-    marginBottom: 4,
+    fontWeight: '600',
+  },
+  syncNowBtn: {
+    backgroundColor: '#2c1810',
+    borderWidth: 1,
+    borderColor: '#4a3428',
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 8,
+  },
+  syncNowText: {
+    color: '#d4a574',
+    fontSize: 11,
+    fontWeight: '700',
   },
   categoryChipTextActive: {
     color: '#1a0f0a',
