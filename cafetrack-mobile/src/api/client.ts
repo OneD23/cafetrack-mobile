@@ -168,6 +168,29 @@ async deductIngredients(recipeId: string, quantity: number, saleId: string) {
     });
   }
 
+  // Customers
+  async getCustomers(search?: string) {
+    const query = search ? `?search=${encodeURIComponent(search)}` : '';
+    return this.request(`/customers${query}`);
+  }
+
+  async createCustomer(payload: {
+    customerId?: string;
+    name: string;
+    email?: string;
+    phone?: string;
+    address?: string;
+  }) {
+    return this.request('/customers', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
+  }
+
+  async getCustomerHistory(customerMongoId: string) {
+    return this.request(`/customers/${customerMongoId}/history`);
+  }
+
   async getSales(params?: any) {
     const queryString = params ? `?${new URLSearchParams(params)}` : '';
     return this.request(`/sales${queryString}`);

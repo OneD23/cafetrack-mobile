@@ -3,14 +3,17 @@ import { Provider } from 'react-redux';
 import { NavigationContainer } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { Ionicons } from '@expo/vector-icons';
+import { ActivityIndicator, View, Text } from 'react-native';
 import { store } from './src/store';
 import { fetchIngredients } from './src/store/inventorySlice';
+import { restoreSession } from './src/store/authSlice';
 
 import LoginScreen from './src/screens/LoginScreen';
 import POSScreen from './src/screens/POSScreen';
 import InventoryScreen from './src/screens/InventoryScreen';
 import ReportsScreen from './src/screens/ReportsScreen';
 import SettingsScreen from './src/screens/SettingsScreen';
+import CustomersScreen from './src/screens/CustomersScreen';
 
 const Tab = createBottomTabNavigator();
 
@@ -25,6 +28,8 @@ function MainTabs() {
             iconName = focused ? 'cafe' : 'cafe-outline';
           } else if (route.name === 'Inventario') {
             iconName = focused ? 'cube' : 'cube-outline';
+          } else if (route.name === 'Clientes') {
+            iconName = focused ? 'people' : 'people-outline';
           } else if (route.name === 'Reportes') {
             iconName = focused ? 'bar-chart' : 'bar-chart-outline';
           } else if (route.name === 'Ajustes') {
@@ -45,6 +50,7 @@ function MainTabs() {
     >
       <Tab.Screen name="POS" component={POSScreen} />
       <Tab.Screen name="Inventario" component={InventoryScreen} />
+      <Tab.Screen name="Clientes" component={CustomersScreen} />
       <Tab.Screen name="Reportes" component={ReportsScreen} />
       <Tab.Screen name="Ajustes" component={SettingsScreen} />
     </Tab.Navigator>
@@ -52,22 +58,32 @@ function MainTabs() {
 }
 
 function AppContent() {
-  const [user, setUser] = React.useState(store.getState().auth.user);
+  const [authState, setAuthState] = React.useState(store.getState().auth);
   
   React.useEffect(() => {
+    store.dispatch(restoreSession() as any);
     const unsubscribe = store.subscribe(() => {
-      setUser(store.getState().auth.user);
+      setAuthState(store.getState().auth);
     });
     return unsubscribe;
   }, []);
 
   React.useEffect(() => {
-    if (user) {
+    if (authState.user) {
       store.dispatch(fetchIngredients() as any);
     }
-  }, [user]);
+  }, [authState.user]);
 
-  return user ? <MainTabs /> : <LoginScreen />;
+  if (authState.isLoading) {
+    return (
+      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#1a0f0a' }}>
+        <ActivityIndicator size="large" color="#d4a574" />
+        <Text style={{ color: '#f5f1e8', marginTop: 12 }}>Restaurando sesión...</Text>
+      </View>
+    );
+  }
+
+  return authState.user ? <MainTabs /> : <LoginScreen />;
 }
 
 export default function App() {

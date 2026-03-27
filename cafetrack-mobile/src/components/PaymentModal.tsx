@@ -19,13 +19,14 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
 }) => {
   const [method, setMethod] = useState<'cash' | 'card' | 'transfer'>('cash');
   const [discount, setDiscount] = useState('');
+  const [customerId, setCustomerId] = useState('');
   const [customerName, setCustomerName] = useState('');
 
   const handleConfirm = () => {
     onConfirm({
       method,
       discount: discount ? parseFloat(discount) : 0,
-      customer: customerName ? { name: customerName } : null,
+      customer: customerName || customerId ? { id: customerId || undefined, name: customerName || undefined } : null,
     });
   };
 
@@ -68,6 +69,15 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
             keyboardType="decimal-pad"
             value={discount}
             onChangeText={setDiscount}
+          />
+
+          <Text style={styles.sectionTitle}>ID cliente (opcional)</Text>
+          <TextInput
+            style={styles.input}
+            placeholder="Ej: CUST-20260327-1234"
+            placeholderTextColor="#8b6f4e"
+            value={customerId}
+            onChangeText={setCustomerId}
           />
 
           <Text style={styles.sectionTitle}>Cliente (opcional)</Text>

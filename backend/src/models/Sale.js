@@ -67,6 +67,10 @@ const saleSchema = new mongoose.Schema({
     email: String,
     phone: String
   },
+  customerId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Customer',
+  },
   cashier: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User',

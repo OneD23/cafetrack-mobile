@@ -4,6 +4,7 @@ const Product = require('../models/Product');
 const Recipe = require('../models/Recipe');
 const Ingredient = require('../models/Ingredient');
 const InventoryMovement = require('../models/InventoryMovement');
+const Customer = require('../models/Customer');
 const { protect } = require('../middleware/auth');
 
 const router = express.Router();
@@ -26,7 +27,28 @@ router.post('/', protect, async (req, res) => {
   session.startTransaction();
 
   try {
-    const { items, paymentMethod, customer, discount, deviceId, syncId } = req.body;
+    const { items, paymentMethod, customer, customerId, discount, deviceId, syncId } = req.body;
+
+    const parsedDiscount = {
+      type: discount?.type || 'none',
+      value: Number(discount?.value || 0)
+    };
+
+    let customerSnapshot = customer;
+    let resolvedCustomerId = null;
+    if (customerId) {
+      const foundCustomer = await Customer.findById(customerId).session(session);
+      if (!foundCustomer) {
+        throw new Error('Cliente no encontrado');
+      }
+
+      resolvedCustomerId = foundCustomer._id;
+      customerSnapshot = {
+        name: foundCustomer.name,
+        email: foundCustomer.email,
+        phone: foundCustomer.phone,
+      };
+    }
 
     const parsedDiscount = {
       type: discount?.type || 'none',
@@ -138,7 +160,8 @@ router.post('/', protect, async (req, res) => {
       tax,
       total,
       paymentMethod,
-      customer,
+      customer: customerSnapshot,
+      customerId: resolvedCustomerId,
       cashier: req.user._id,
       syncId,
       deviceId,
@@ -196,6 +219,7 @@ router.get('/', protect, async (req, res) => {
     const sales = await Sale.find(query)
       .populate('items.product', 'name icon')
       .populate('cashier', 'name')
+      .populate('customerId', 'customerId name')
       .sort({ createdAt: -1 })
       .limit(limit * 1)
       .skip((page - 1) * limit);

@@ -54,6 +54,7 @@ export const processSale = createAsyncThunk(
     payload: {
       paymentMethod: string;
       customerName?: string;
+      customerId?: string;
       discount?: number;
     },
     { getState }
