@@ -12,6 +12,7 @@ import {
   ScrollView,
   Platform,
 } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useSelector, useDispatch } from 'react-redux';
 import { Ionicons } from '@expo/vector-icons';
 import {
@@ -36,7 +37,32 @@ const POSScreen: React.FC = () => {
   const [cashRegister, setCashRegister] = useState({
     isOpen: false,
     openingAmount: 0,
+    openedAt: null as string | null,
   });
+
+  useEffect(() => {
+    const restoreCashRegister = async () => {
+      try {
+        const raw = await AsyncStorage.getItem('cash_register_state');
+        if (!raw) return;
+        const saved = JSON.parse(raw);
+        if (saved?.isOpen) {
+          setCashRegister({
+            isOpen: true,
+            openingAmount: Number(saved.openingAmount || 0),
+            openedAt: saved.openedAt || null,
+          });
+        }
+      } catch (error) {
+        console.warn('No se pudo restaurar el estado de caja');
+      }
+    };
+    restoreCashRegister();
+  }, []);
+
+  useEffect(() => {
+    AsyncStorage.setItem('cash_register_state', JSON.stringify(cashRegister));
+  }, [cashRegister]);
 
   useEffect(() => {
     dispatch(fetchProducts());
@@ -63,14 +89,16 @@ const POSScreen: React.FC = () => {
   }, [products, selectedCategory, searchQuery]);
 
   const handleOpenRegister = () => {
-    setCashRegister({ isOpen: true, openingAmount: 0 });
+    setCashRegister({ isOpen: true, openingAmount: 0, openedAt: new Date().toISOString() });
   };
 
   const handleCloseRegister = () => {
     const printCloseReport = async () => {
       const now = new Date();
-      const startDate = new Date(now);
-      startDate.setHours(0, 0, 0, 0);
+      const startDate = cashRegister.openedAt ? new Date(cashRegister.openedAt) : new Date(now);
+      if (!cashRegister.openedAt) {
+        startDate.setHours(0, 0, 0, 0);
+      }
 
       const response = await api.getSales({
         startDate: startDate.toISOString(),
@@ -97,7 +125,8 @@ const POSScreen: React.FC = () => {
         '📊 REPORTE DE CIERRE DE CAJA',
         `Fecha: ${now.toLocaleString()}`,
         '=================================',
-        `Caja abrió: ${cashRegister.isOpen ? 'Sí' : 'No'}`,
+        `Caja abrió: ${cashRegister.openedAt ? new Date(cashRegister.openedAt).toLocaleString() : 'No registrado'}`,
+        `Caja cerró: ${now.toLocaleString()}`,
         `Monto apertura: $${Number(cashRegister.openingAmount || 0).toFixed(2)}`,
         `Ventas del día: ${totals.count}`,
         `Subtotal: $${totals.subtotal.toFixed(2)}`,
@@ -136,7 +165,8 @@ const POSScreen: React.FC = () => {
           } catch (error: any) {
             Alert.alert('Advertencia', error?.message || 'No se pudo imprimir reporte de cierre.');
           } finally {
-            setCashRegister({ isOpen: false, openingAmount: 0 });
+            setCashRegister({ isOpen: false, openingAmount: 0, openedAt: null });
+            await AsyncStorage.removeItem('cash_register_state');
             dispatch(logout());
           }
         },
