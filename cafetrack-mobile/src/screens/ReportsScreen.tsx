@@ -95,6 +95,27 @@ const ReportsScreen: React.FC = () => {
     0
   );
 
+  const paymentChart = useMemo(
+    () =>
+      Object.entries(accountingSummary.byMethod).map(([method, amount]) => ({
+        label: method,
+        value: Number(amount),
+      })),
+    [accountingSummary.byMethod]
+  );
+
+  const revenueByDate = useMemo(() => {
+    const grouped = sales.reduce((acc: Record<string, number>, sale: any) => {
+      const key = new Date(sale.createdAt).toISOString().slice(0, 10);
+      acc[key] = (acc[key] || 0) + Number(sale.total || 0);
+      return acc;
+    }, {});
+
+    return Object.entries(grouped)
+      .sort(([a], [b]) => (a > b ? 1 : -1))
+      .map(([date, value]) => ({ date, value }));
+  }, [sales]);
+
   const printAccountingReport = () => {
     const { start, end } = buildRange();
     const report = [
@@ -220,6 +241,45 @@ const ReportsScreen: React.FC = () => {
             <Text style={styles.line}>Impuestos: ${accountingSummary.tax.toFixed(2)}</Text>
             <Text style={styles.line}>Total neto: ${accountingSummary.total.toFixed(2)}</Text>
             <Text style={styles.line}>Inventario valorizado: ${inventoryValue.toFixed(2)}</Text>
+
+            <Text style={[styles.blockTitle, { marginTop: 12 }]}>Ventas por método de pago</Text>
+            <View style={styles.chartWrap}>
+              {paymentChart.length === 0 ? (
+                <Text style={styles.lineSmall}>Sin datos para graficar.</Text>
+              ) : (
+                paymentChart.map((row) => {
+                  const max = Math.max(...paymentChart.map((p) => p.value), 1);
+                  const pct = (row.value / max) * 100;
+                  return (
+                    <View key={row.label} style={styles.chartRow}>
+                      <Text style={styles.chartLabel}>{row.label}</Text>
+                      <View style={styles.chartBarBg}>
+                        <View style={[styles.chartBarFill, { width: `${pct}%` }]} />
+                      </View>
+                      <Text style={styles.chartValue}>${row.value.toFixed(2)}</Text>
+                    </View>
+                  );
+                })
+              )}
+            </View>
+
+            <Text style={[styles.blockTitle, { marginTop: 12 }]}>Tendencia diaria</Text>
+            <View style={styles.sparklineWrap}>
+              {revenueByDate.length === 0 ? (
+                <Text style={styles.lineSmall}>Sin datos para graficar.</Text>
+              ) : (
+                revenueByDate.map((d) => {
+                  const max = Math.max(...revenueByDate.map((x) => x.value), 1);
+                  const height = Math.max(6, (d.value / max) * 80);
+                  return (
+                    <View key={d.date} style={styles.sparkPoint}>
+                      <View style={[styles.sparkBar, { height }]} />
+                      <Text style={styles.sparkLabel}>{d.date.slice(5)}</Text>
+                    </View>
+                  );
+                })
+              )}
+            </View>
           </View>
         )}
 
@@ -423,6 +483,34 @@ const styles = StyleSheet.create({
     borderColor: '#4a3428',
   },
   secondaryBtnText: { color: '#f5f1e8', fontWeight: '700' },
+  chartWrap: { marginTop: 6 },
+  chartRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 8 },
+  chartLabel: { color: '#f5f1e8', width: 70, fontSize: 12, textTransform: 'capitalize' },
+  chartBarBg: {
+    flex: 1,
+    height: 12,
+    backgroundColor: '#1a0f0a',
+    borderRadius: 8,
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: '#4a3428',
+  },
+  chartBarFill: { height: '100%', backgroundColor: '#27ae60' },
+  chartValue: { color: '#d4a574', width: 80, textAlign: 'right', fontSize: 12 },
+  sparklineWrap: {
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    gap: 8,
+    minHeight: 100,
+    paddingTop: 8,
+  },
+  sparkPoint: { alignItems: 'center' },
+  sparkBar: {
+    width: 12,
+    backgroundColor: '#3498db',
+    borderRadius: 4,
+  },
+  sparkLabel: { color: '#8b6f4e', fontSize: 10, marginTop: 4 },
   input: {
     backgroundColor: '#1a0f0a',
     borderColor: '#4a3428',
