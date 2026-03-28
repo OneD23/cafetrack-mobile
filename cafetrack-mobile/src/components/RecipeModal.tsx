@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   View,
   Text,
@@ -40,6 +40,7 @@ export const RecipeModal: React.FC<RecipeModalProps> = ({
 }) => {
   const dispatch = useDispatch<any>();
   const ingredients = useSelector((state: any) => state.inventory.ingredients);
+  const recipes = useSelector((state: any) => state.recipes.recipes || []);
 
   const [name, setName] = useState(editingProduct?.name || '');
   const [price, setPrice] = useState(editingProduct?.price?.toString() || '');
@@ -47,6 +48,40 @@ export const RecipeModal: React.FC<RecipeModalProps> = ({
   const [selectedIngredients, setSelectedIngredients] = useState<RecipeItem[]>([]);
   const [prepTime, setPrepTime] = useState('2');
   const [recipeImage, setRecipeImage] = useState(editingProduct?.image || '');
+
+  useEffect(() => {
+    if (!visible) return;
+
+    if (editingProduct) {
+      setName(editingProduct?.name || '');
+      setPrice(editingProduct?.price?.toString() || '');
+      setCategory(editingProduct?.category || 'coffee');
+      setRecipeImage(editingProduct?.image || '');
+
+      const existingRecipe = recipes.find(
+        (r: any) => String(r.productId) === String(editingProduct.id || editingProduct._id)
+      );
+      if (existingRecipe?.items) {
+        setSelectedIngredients(
+          existingRecipe.items.map((item: any) => ({
+            ingredientId: String(item.ingredientId),
+            quantity: Number(item.quantity || 0),
+          }))
+        );
+        setPrepTime(String(existingRecipe.preparationTime || '2'));
+      } else {
+        setSelectedIngredients([]);
+        setPrepTime('2');
+      }
+    } else {
+      setName('');
+      setPrice('');
+      setCategory('coffee');
+      setSelectedIngredients([]);
+      setPrepTime('2');
+      setRecipeImage('');
+    }
+  }, [editingProduct, recipes, visible]);
 
   const categories = [
     { id: 'coffee', name: 'Café', icon: '☕' },
@@ -125,7 +160,7 @@ export const RecipeModal: React.FC<RecipeModalProps> = ({
     try {
       if (editingProduct?.id) {
         await dispatch(
-          updateProductWithRecipe({ id: editingProduct.id, payload: productPayload })
+          updateProductWithRecipe({ id: editingProduct.id, payload: createPayload })
         ).unwrap();
       } else {
         await dispatch(createProductWithRecipe(createPayload)).unwrap();

@@ -466,6 +466,17 @@ const POSScreen: React.FC = () => {
             ))}
           </ScrollView>
 
+          <View style={styles.cartBreakdown}>
+            <View style={styles.cartLineRow}>
+              <Text style={styles.cartLineLabel}>Subtotal</Text>
+              <Text style={styles.cartLineValue}>${totals.subtotal.toFixed(2)}</Text>
+            </View>
+            <View style={styles.cartLineRow}>
+              <Text style={styles.cartLineLabel}>ITBIS (16%)</Text>
+              <Text style={styles.cartLineValue}>${totals.tax.toFixed(2)}</Text>
+            </View>
+          </View>
+
           <View style={styles.cartTotal}>
             <Text style={styles.cartTotalLabel}>TOTAL</Text>
             <Text style={styles.cartTotalValue}>${totals.total.toFixed(2)}</Text>
@@ -655,6 +666,20 @@ const styles = StyleSheet.create({
   qtyBtnText: { color: '#d4a574', fontWeight: '700' },
   qtyValue: { color: '#f5f1e8', fontWeight: '700', minWidth: 18, textAlign: 'center' },
   cartItemPrice: { color: '#d4a574', fontWeight: '700' },
+  cartBreakdown: {
+    marginTop: 12,
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: '#4a3428',
+    gap: 6,
+  },
+  cartLineRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  cartLineLabel: { color: '#d6c8b4', fontSize: 14 },
+  cartLineValue: { color: '#f5f1e8', fontSize: 14, fontWeight: '600' },
   cartTotal: {
     flexDirection: 'row',
     justifyContent: 'space-between',

@@ -88,31 +88,54 @@ router.post('/', protect, async (req, res) => {
 // @desc    Actualizar producto
 // @access  Private
 router.put('/:id', protect, async (req, res) => {
+  const session = await Product.startSession();
+  session.startTransaction();
   try {
+    const { recipe, ...productPayload } = req.body;
+
     const product = await Product.findByIdAndUpdate(
       req.params.id,
-      req.body,
-      { new: true, runValidators: true }
-    ).populate('recipeId');
+      productPayload,
+      { new: true, runValidators: true, session }
+    );
 
     if (!product) {
+      await session.abortTransaction();
       return res.status(404).json({
         success: false,
         message: 'Producto no encontrado'
       });
     }
 
-    req.app.get('io').emit('product:updated', product);
+    if (recipe && product.recipeId) {
+      await Recipe.findByIdAndUpdate(
+        product.recipeId,
+        {
+          items: recipe.items,
+          preparationTime: recipe.preparationTime || 2,
+          image: recipe.image || null,
+        },
+        { new: true, runValidators: true, session }
+      );
+    }
+
+    await session.commitTransaction();
+    const populatedProduct = await Product.findById(product._id).populate('recipeId');
+
+    req.app.get('io').emit('product:updated', populatedProduct);
 
     res.json({
       success: true,
-      data: product
+      data: populatedProduct
     });
   } catch (error) {
+    await session.abortTransaction();
     res.status(400).json({
       success: false,
       message: error.message
     });
+  } finally {
+    session.endSession();
   }
 });
 
