@@ -218,6 +218,26 @@ async deductIngredients(recipeId: string, quantity: number, saleId: string) {
     return this.request(`/customers/${customerMongoId}/history`);
   }
 
+  async updateCustomer(customerMongoId: string, payload: {
+    customerId?: string;
+    name?: string;
+    email?: string;
+    phone?: string;
+    address?: string;
+    isActive?: boolean;
+  }) {
+    return this.request(`/customers/${customerMongoId}`, {
+      method: 'PUT',
+      body: JSON.stringify(payload),
+    });
+  }
+
+  async deleteCustomer(customerMongoId: string) {
+    return this.request(`/customers/${customerMongoId}`, {
+      method: 'DELETE',
+    });
+  }
+
   async getSales(params?: any) {
     const queryString = params ? `?${new URLSearchParams(params)}` : '';
     return this.request(`/sales${queryString}`);
@@ -246,6 +266,46 @@ async deductIngredients(recipeId: string, quantity: number, saleId: string) {
   async getInventoryConsumptionReport(params?: any) {
     const queryString = params ? `?${new URLSearchParams(params)}` : '';
     return this.request(`/reports/inventory/consumption${queryString}`);
+  }
+
+  async getExpenses(params?: any) {
+    const queryString = params ? `?${new URLSearchParams(params)}` : '';
+    return this.request(`/reports/expenses${queryString}`);
+  }
+
+  async createExpense(payload: {
+    date?: string;
+    category: string;
+    description: string;
+    amount: number;
+    paymentMethod?: 'cash' | 'card' | 'transfer' | 'other';
+    reference?: string;
+  }) {
+    return this.request('/reports/expenses', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
+  }
+
+  async updateExpense(expenseId: string, payload: {
+    date?: string;
+    category?: string;
+    description?: string;
+    amount?: number;
+    paymentMethod?: 'cash' | 'card' | 'transfer' | 'other';
+    reference?: string;
+    isActive?: boolean;
+  }) {
+    return this.request(`/reports/expenses/${expenseId}`, {
+      method: 'PUT',
+      body: JSON.stringify(payload),
+    });
+  }
+
+  async deleteExpense(expenseId: string) {
+    return this.request(`/reports/expenses/${expenseId}`, {
+      method: 'DELETE',
+    });
   }
 
   async warmupOfflineBackup() {

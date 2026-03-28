@@ -62,6 +62,70 @@ router.post('/', protect, async (req, res) => {
   }
 });
 
+// @route   PUT /api/customers/:id
+// @desc    Editar cliente
+// @access  Private
+router.put('/:id', protect, async (req, res) => {
+  try {
+    const { customerId, name, email, phone, address, isActive } = req.body;
+
+    const customer = await Customer.findById(req.params.id);
+    if (!customer) {
+      return res.status(404).json({
+        success: false,
+        message: 'Cliente no encontrado',
+      });
+    }
+
+    if (customerId !== undefined) customer.customerId = customerId;
+    if (name !== undefined) customer.name = name;
+    if (email !== undefined) customer.email = email;
+    if (phone !== undefined) customer.phone = phone;
+    if (address !== undefined) customer.address = address;
+    if (isActive !== undefined) customer.isActive = Boolean(isActive);
+
+    await customer.save();
+
+    res.json({
+      success: true,
+      data: customer,
+    });
+  } catch (error) {
+    res.status(400).json({
+      success: false,
+      message: error.message,
+    });
+  }
+});
+
+// @route   DELETE /api/customers/:id
+// @desc    Eliminar/desactivar cliente
+// @access  Private
+router.delete('/:id', protect, async (req, res) => {
+  try {
+    const customer = await Customer.findById(req.params.id);
+    if (!customer) {
+      return res.status(404).json({
+        success: false,
+        message: 'Cliente no encontrado',
+      });
+    }
+
+    customer.isActive = false;
+    await customer.save();
+
+    res.json({
+      success: true,
+      message: 'Cliente eliminado',
+    });
+  } catch (error) {
+    res.status(400).json({
+      success: false,
+      message: error.message,
+    });
+  }
+});
+
 // @route   GET /api/customers/:id/history
 // @desc    Historial de compras por cliente
 // @access  Private

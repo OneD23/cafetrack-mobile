@@ -12,11 +12,13 @@ import {
   Modal,
 } from 'react-native';
 import { useSelector } from 'react-redux';
+import { Ionicons } from '@expo/vector-icons';
 import { api } from '../api/client';
 
 const ReportsScreen: React.FC = () => {
-  const [tab, setTab] = useState<'stats' | 'invoices' | 'reports' | 'fiscal'>('stats');
+  const [tab, setTab] = useState<'stats' | 'invoices' | 'reports' | 'expenses' | 'fiscal'>('stats');
   const [sales, setSales] = useState<any[]>([]);
+  const [expenses, setExpenses] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [filterType, setFilterType] = useState<'day' | 'month' | 'year'>('day');
   const [filterValue, setFilterValue] = useState(new Date().toISOString().slice(0, 10));
@@ -27,6 +29,14 @@ const ReportsScreen: React.FC = () => {
     fiscalAddress: '',
     taxRate: '16',
   });
+
+  const [expenseDate, setExpenseDate] = useState(new Date().toISOString().slice(0, 10));
+  const [expenseCategory, setExpenseCategory] = useState('Operativo');
+  const [expenseDescription, setExpenseDescription] = useState('');
+  const [expenseAmount, setExpenseAmount] = useState('');
+  const [expensePaymentMethod, setExpensePaymentMethod] = useState<'cash' | 'card' | 'transfer' | 'other'>('cash');
+  const [expenseReference, setExpenseReference] = useState('');
+  const [editingExpenseId, setEditingExpenseId] = useState<string | null>(null);
 
   const ingredients = useSelector((state: any) => state.inventory?.ingredients || []);
 
@@ -70,8 +80,22 @@ const ReportsScreen: React.FC = () => {
     }
   };
 
+  const loadExpenses = async () => {
+    try {
+      const { start, end } = buildRange();
+      const response = await api.getExpenses({
+        startDate: start.toISOString(),
+        endDate: end.toISOString(),
+      });
+      setExpenses(response?.data || []);
+    } catch (error: any) {
+      Alert.alert('Error', error?.message || 'No se pudieron cargar gastos');
+    }
+  };
+
   useEffect(() => {
     loadSales();
+    loadExpenses();
   }, [filterType, filterValue]);
 
   const accountingSummary = useMemo(() => {
@@ -94,6 +118,19 @@ const ReportsScreen: React.FC = () => {
     (sum: number, ing: any) => sum + Number(ing.stock || 0) * Number(ing.costPerUnit || 0),
     0
   );
+
+  const expensesSummary = useMemo(() => {
+    return expenses.reduce(
+      (acc: any, expense: any) => {
+        const amount = Number(expense.amount || 0);
+        acc.total += amount;
+        const key = expense.category || 'Sin categoría';
+        acc.byCategory[key] = (acc.byCategory[key] || 0) + amount;
+        return acc;
+      },
+      { total: 0, byCategory: {} as Record<string, number> }
+    );
+  }, [expenses]);
 
   const paymentChart = useMemo(
     () =>
@@ -126,6 +163,8 @@ const ReportsScreen: React.FC = () => {
       `Descuentos: $${accountingSummary.discount.toFixed(2)}`,
       `Impuestos: $${accountingSummary.tax.toFixed(2)}`,
       `Total: $${accountingSummary.total.toFixed(2)}`,
+      `Gastos operativos: $${expensesSummary.total.toFixed(2)}`,
+      `Resultado estimado: $${(accountingSummary.total - expensesSummary.total).toFixed(2)}`,
       `Valor de inventario: $${inventoryValue.toFixed(2)}`,
       '--- Métodos de pago ---',
       ...Object.entries(accountingSummary.byMethod).map(
@@ -177,6 +216,83 @@ const ReportsScreen: React.FC = () => {
     Alert.alert('Factura', text);
   };
 
+  const resetExpenseForm = () => {
+    setExpenseDate(new Date().toISOString().slice(0, 10));
+    setExpenseCategory('Operativo');
+    setExpenseDescription('');
+    setExpenseAmount('');
+    setExpensePaymentMethod('cash');
+    setExpenseReference('');
+    setEditingExpenseId(null);
+  };
+
+  const handleSaveExpense = async () => {
+    if (!expenseDescription.trim() || !expenseCategory.trim()) {
+      Alert.alert('Error', 'Debes completar categoría y descripción');
+      return;
+    }
+
+    const amountNumber = Number(expenseAmount);
+    if (!amountNumber || amountNumber <= 0) {
+      Alert.alert('Error', 'El monto debe ser mayor a 0');
+      return;
+    }
+
+    try {
+      const payload = {
+        date: new Date(`${expenseDate}T00:00:00`).toISOString(),
+        category: expenseCategory.trim(),
+        description: expenseDescription.trim(),
+        amount: amountNumber,
+        paymentMethod: expensePaymentMethod,
+        reference: expenseReference.trim() || undefined,
+      };
+
+      if (editingExpenseId) {
+        await api.updateExpense(editingExpenseId, payload);
+        Alert.alert('Gasto actualizado', 'El gasto fue actualizado correctamente');
+      } else {
+        await api.createExpense(payload);
+        Alert.alert('Gasto registrado', 'El gasto fue registrado correctamente');
+      }
+
+      resetExpenseForm();
+      loadExpenses();
+    } catch (error: any) {
+      Alert.alert('Error', error?.message || 'No se pudo guardar el gasto');
+    }
+  };
+
+  const handleEditExpense = (expense: any) => {
+    setEditingExpenseId(String(expense.id || expense._id));
+    setExpenseDate(new Date(expense.date || expense.createdAt).toISOString().slice(0, 10));
+    setExpenseCategory(expense.category || '');
+    setExpenseDescription(expense.description || '');
+    setExpenseAmount(String(expense.amount || ''));
+    setExpensePaymentMethod(expense.paymentMethod || 'cash');
+    setExpenseReference(expense.reference || '');
+  };
+
+  const handleDeleteExpense = (expense: any) => {
+    Alert.alert('Eliminar gasto', `¿Eliminar gasto de $${Number(expense.amount || 0).toFixed(2)}?`, [
+      { text: 'Cancelar', style: 'cancel' },
+      {
+        text: 'Eliminar',
+        style: 'destructive',
+        onPress: async () => {
+          try {
+            await api.deleteExpense(String(expense.id || expense._id));
+            setExpenses((prev) =>
+              prev.filter((x) => String(x.id || x._id) !== String(expense.id || expense._id))
+            );
+          } catch (error: any) {
+            Alert.alert('Error', error?.message || 'No se pudo eliminar el gasto');
+          }
+        },
+      },
+    ]);
+  };
+
   return (
     <SafeAreaView style={styles.container}>
       <Text style={styles.title}>💼 Contabilidad</Text>
@@ -186,6 +302,7 @@ const ReportsScreen: React.FC = () => {
           { id: 'stats', label: 'Estadísticas' },
           { id: 'invoices', label: 'Facturas' },
           { id: 'reports', label: 'Reportes' },
+          { id: 'expenses', label: 'Gastos' },
           { id: 'fiscal', label: 'Config. fiscal' },
         ].map((option: any) => (
           <TouchableOpacity
@@ -193,9 +310,7 @@ const ReportsScreen: React.FC = () => {
             style={[styles.tabBtn, tab === option.id && styles.tabBtnActive]}
             onPress={() => setTab(option.id)}
           >
-            <Text style={[styles.tabText, tab === option.id && styles.tabTextActive]}>
-              {option.label}
-            </Text>
+            <Text style={[styles.tabText, tab === option.id && styles.tabTextActive]}>{option.label}</Text>
           </TouchableOpacity>
         ))}
       </View>
@@ -213,9 +328,7 @@ const ReportsScreen: React.FC = () => {
                 if (f === 'year') setFilterValue(String(new Date().getFullYear()));
               }}
             >
-              <Text style={styles.filterTypeText}>
-                {f === 'day' ? 'Día' : f === 'month' ? 'Mes' : 'Año'}
-              </Text>
+              <Text style={styles.filterTypeText}>{f === 'day' ? 'Día' : f === 'month' ? 'Mes' : 'Año'}</Text>
             </TouchableOpacity>
           ))}
         </View>
@@ -226,7 +339,13 @@ const ReportsScreen: React.FC = () => {
           placeholder={filterType === 'day' ? 'YYYY-MM-DD' : filterType === 'month' ? 'YYYY-MM' : 'YYYY'}
           placeholderTextColor="#8b6f4e"
         />
-        <TouchableOpacity style={styles.primaryBtn} onPress={loadSales}>
+        <TouchableOpacity
+          style={styles.primaryBtn}
+          onPress={() => {
+            loadSales();
+            loadExpenses();
+          }}
+        >
           <Text style={styles.primaryBtnText}>Buscar</Text>
         </TouchableOpacity>
       </View>
@@ -234,12 +353,14 @@ const ReportsScreen: React.FC = () => {
       <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingBottom: 30 }}>
         {tab === 'stats' && (
           <View style={styles.block}>
-            <Text style={styles.blockTitle}>Resumen del día</Text>
+            <Text style={styles.blockTitle}>Resumen del periodo</Text>
             <Text style={styles.line}>Facturas: {accountingSummary.invoices}</Text>
             <Text style={styles.line}>Subtotal: ${accountingSummary.subtotal.toFixed(2)}</Text>
             <Text style={styles.line}>Descuentos: ${accountingSummary.discount.toFixed(2)}</Text>
             <Text style={styles.line}>Impuestos: ${accountingSummary.tax.toFixed(2)}</Text>
-            <Text style={styles.line}>Total neto: ${accountingSummary.total.toFixed(2)}</Text>
+            <Text style={styles.line}>Total neto ventas: ${accountingSummary.total.toFixed(2)}</Text>
+            <Text style={styles.line}>Gastos del periodo: ${expensesSummary.total.toFixed(2)}</Text>
+            <Text style={styles.line}>Resultado estimado: ${(accountingSummary.total - expensesSummary.total).toFixed(2)}</Text>
             <Text style={styles.line}>Inventario valorizado: ${inventoryValue.toFixed(2)}</Text>
 
             <Text style={[styles.blockTitle, { marginTop: 12 }]}>Ventas por método de pago</Text>
@@ -294,15 +415,10 @@ const ReportsScreen: React.FC = () => {
                   <Text style={styles.lineSmall}>
                     Cliente: {sale.customer?.name || sale.customerId?.name || 'Consumidor final'}
                   </Text>
-                  <Text style={styles.lineSmall}>
-                    {new Date(sale.createdAt).toLocaleString()}
-                  </Text>
+                  <Text style={styles.lineSmall}>{new Date(sale.createdAt).toLocaleString()}</Text>
                 </View>
                 <Text style={styles.invoiceTotal}>${Number(sale.total || 0).toFixed(2)}</Text>
-                <TouchableOpacity
-                  style={styles.reprintBtn}
-                  onPress={() => setSelectedInvoice(sale)}
-                >
+                <TouchableOpacity style={styles.reprintBtn} onPress={() => setSelectedInvoice(sale)}>
                   <Text style={styles.reprintText}>Ver / Reimprimir</Text>
                 </TouchableOpacity>
               </View>
@@ -316,6 +432,91 @@ const ReportsScreen: React.FC = () => {
             <TouchableOpacity style={styles.primaryBtn} onPress={printAccountingReport}>
               <Text style={styles.primaryBtnText}>Imprimir reporte contable del día</Text>
             </TouchableOpacity>
+          </View>
+        )}
+
+        {tab === 'expenses' && (
+          <View style={styles.block}>
+            <Text style={styles.blockTitle}>Registro de gastos</Text>
+            <Text style={styles.line}>Gasto total del periodo: ${expensesSummary.total.toFixed(2)}</Text>
+            <TextInput
+              style={styles.input}
+              value={expenseDate}
+              onChangeText={setExpenseDate}
+              placeholder="YYYY-MM-DD"
+              placeholderTextColor="#8b6f4e"
+            />
+            <TextInput
+              style={styles.input}
+              value={expenseCategory}
+              onChangeText={setExpenseCategory}
+              placeholder="Categoría (ej: nómina, alquiler, servicios)"
+              placeholderTextColor="#8b6f4e"
+            />
+            <TextInput
+              style={styles.input}
+              value={expenseDescription}
+              onChangeText={setExpenseDescription}
+              placeholder="Descripción del gasto"
+              placeholderTextColor="#8b6f4e"
+            />
+            <TextInput
+              style={styles.input}
+              value={expenseAmount}
+              onChangeText={setExpenseAmount}
+              placeholder="Monto"
+              placeholderTextColor="#8b6f4e"
+              keyboardType="decimal-pad"
+            />
+            <TextInput
+              style={styles.input}
+              value={expensePaymentMethod}
+              onChangeText={(v) =>
+                setExpensePaymentMethod((['cash', 'card', 'transfer', 'other'].includes(v) ? v : 'other') as any)
+              }
+              placeholder="Método (cash/card/transfer/other)"
+              placeholderTextColor="#8b6f4e"
+              autoCapitalize="none"
+            />
+            <TextInput
+              style={styles.input}
+              value={expenseReference}
+              onChangeText={setExpenseReference}
+              placeholder="Referencia (opcional)"
+              placeholderTextColor="#8b6f4e"
+            />
+
+            <View style={styles.expenseActionsRow}>
+              <TouchableOpacity style={styles.primaryBtn} onPress={handleSaveExpense}>
+                <Text style={styles.primaryBtnText}>{editingExpenseId ? 'Actualizar gasto' : 'Registrar gasto'}</Text>
+              </TouchableOpacity>
+              {editingExpenseId ? (
+                <TouchableOpacity style={styles.secondaryBtn} onPress={resetExpenseForm}>
+                  <Text style={styles.secondaryBtnText}>Cancelar edición</Text>
+                </TouchableOpacity>
+              ) : null}
+            </View>
+
+            <Text style={[styles.blockTitle, { marginTop: 12 }]}>Gastos del periodo</Text>
+            {expenses.map((expense: any) => (
+              <View key={String(expense.id || expense._id)} style={styles.expenseRow}>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.invoiceId}>{expense.category} - ${Number(expense.amount || 0).toFixed(2)}</Text>
+                  <Text style={styles.lineSmall}>{expense.description}</Text>
+                  <Text style={styles.lineSmall}>
+                    {new Date(expense.date || expense.createdAt).toLocaleDateString()} · {expense.paymentMethod || 'cash'}
+                  </Text>
+                </View>
+                <View style={styles.expenseIcons}>
+                  <TouchableOpacity onPress={() => handleEditExpense(expense)} style={styles.iconBtn}>
+                    <Ionicons name="create-outline" size={18} color="#5dade2" />
+                  </TouchableOpacity>
+                  <TouchableOpacity onPress={() => handleDeleteExpense(expense)} style={styles.iconBtn}>
+                    <Ionicons name="trash-outline" size={18} color="#e74c3c" />
+                  </TouchableOpacity>
+                </View>
+              </View>
+            ))}
           </View>
         )}
 
@@ -351,9 +552,7 @@ const ReportsScreen: React.FC = () => {
               placeholderTextColor="#8b6f4e"
               keyboardType="numeric"
             />
-            <Text style={styles.lineSmall}>
-              Esta configuración se aplica visualmente a los reportes/facturas del módulo.
-            </Text>
+            <Text style={styles.lineSmall}>Esta configuración se aplica visualmente a los reportes/facturas del módulo.</Text>
           </View>
         )}
       </ScrollView>
@@ -366,9 +565,7 @@ const ReportsScreen: React.FC = () => {
       >
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
-            <Text style={styles.blockTitle}>
-              Factura #{selectedInvoice?.saleId}
-            </Text>
+            <Text style={styles.blockTitle}>Factura #{selectedInvoice?.saleId}</Text>
             <Text style={styles.lineSmall}>
               Cliente: {selectedInvoice?.customer?.name || selectedInvoice?.customerId?.name || 'Consumidor final'}
             </Text>
@@ -379,8 +576,7 @@ const ReportsScreen: React.FC = () => {
             <ScrollView style={{ maxHeight: 220, marginTop: 10 }}>
               {(selectedInvoice?.items || []).map((item: any, idx: number) => (
                 <Text key={idx} style={styles.line}>
-                  {item.quantity} x {item.product?.name || 'Producto'} - $
-                  {Number(item.total || 0).toFixed(2)}
+                  {item.quantity} x {item.product?.name || 'Producto'} - ${Number(item.total || 0).toFixed(2)}
                 </Text>
               ))}
             </ScrollView>
@@ -388,16 +584,10 @@ const ReportsScreen: React.FC = () => {
             <Text style={styles.line}>Total: ${Number(selectedInvoice?.total || 0).toFixed(2)}</Text>
 
             <View style={styles.modalActions}>
-              <TouchableOpacity
-                style={styles.secondaryBtn}
-                onPress={() => setSelectedInvoice(null)}
-              >
+              <TouchableOpacity style={styles.secondaryBtn} onPress={() => setSelectedInvoice(null)}>
                 <Text style={styles.secondaryBtnText}>Cerrar</Text>
               </TouchableOpacity>
-              <TouchableOpacity
-                style={styles.primaryBtn}
-                onPress={() => selectedInvoice && printInvoice(selectedInvoice)}
-              >
+              <TouchableOpacity style={styles.primaryBtn} onPress={() => selectedInvoice && printInvoice(selectedInvoice)}>
                 <Text style={styles.primaryBtnText}>Reimprimir</Text>
               </TouchableOpacity>
             </View>
@@ -519,6 +709,29 @@ const styles = StyleSheet.create({
     padding: 10,
     color: '#f5f1e8',
     marginBottom: 8,
+  },
+  expenseActionsRow: { gap: 8 },
+  expenseRow: {
+    marginTop: 8,
+    borderWidth: 1,
+    borderColor: '#4a3428',
+    borderRadius: 12,
+    padding: 10,
+    backgroundColor: '#1a0f0a',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  expenseIcons: { flexDirection: 'row', gap: 6 },
+  iconBtn: {
+    width: 32,
+    height: 32,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#4a3428',
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#2c1810',
   },
 });
 

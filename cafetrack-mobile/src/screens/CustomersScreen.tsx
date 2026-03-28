@@ -25,6 +25,8 @@ const CustomersScreen: React.FC = () => {
   const [historyModal, setHistoryModal] = useState(false);
   const [historyData, setHistoryData] = useState<any>(null);
   const [loading, setLoading] = useState(false);
+  const [editModal, setEditModal] = useState(false);
+  const [editingCustomer, setEditingCustomer] = useState<any>(null);
 
   const loadCustomers = useCallback(async (term?: string) => {
     try {
@@ -81,6 +83,73 @@ const CustomersScreen: React.FC = () => {
     } catch (error: any) {
       Alert.alert('Error', error?.message || 'No se pudo cargar historial');
     }
+  };
+
+  const openEdit = (customer: any) => {
+    setEditingCustomer(customer);
+    setName(customer?.name || '');
+    setCustomerId(customer?.customerId || '');
+    setEmail(customer?.email || '');
+    setPhone(customer?.phone || '');
+    setAddress(customer?.address || '');
+    setEditModal(true);
+  };
+
+  const handleUpdateCustomer = async () => {
+    if (!editingCustomer) return;
+    if (!name.trim()) {
+      Alert.alert('Error', 'El nombre del cliente es obligatorio');
+      return;
+    }
+    try {
+      const mongoId = String(editingCustomer.id || editingCustomer._id);
+      const response = await api.updateCustomer(mongoId, {
+        customerId: customerId.trim() || undefined,
+        name: name.trim(),
+        email: email.trim() || undefined,
+        phone: phone.trim() || undefined,
+        address: address.trim() || undefined,
+      });
+
+      const updated = response?.data;
+      setCustomers((prev) =>
+        prev.map((c) => (String(c.id || c._id) === mongoId ? { ...c, ...updated } : c))
+      );
+      setEditModal(false);
+      setEditingCustomer(null);
+      setName('');
+      setCustomerId('');
+      setEmail('');
+      setPhone('');
+      setAddress('');
+      Alert.alert('Cliente actualizado', 'Los datos del cliente fueron actualizados');
+    } catch (error: any) {
+      Alert.alert('Error', error?.message || 'No se pudo editar el cliente');
+    }
+  };
+
+  const handleDeleteCustomer = (customer: any) => {
+    Alert.alert(
+      'Eliminar cliente',
+      `¿Deseas eliminar a ${customer?.name || 'este cliente'}?`,
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        {
+          text: 'Eliminar',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              const mongoId = String(customer.id || customer._id);
+              await api.deleteCustomer(mongoId);
+              setCustomers((prev) => prev.filter((c) => String(c.id || c._id) !== mongoId));
+              Alert.alert('Cliente eliminado', 'El cliente fue desactivado correctamente');
+            } catch (error: any) {
+              Alert.alert('Error', error?.message || 'No se pudo eliminar el cliente');
+            }
+          },
+        },
+      ]
+    );
   };
 
   const filtered = useMemo(() => {
@@ -159,7 +228,7 @@ const CustomersScreen: React.FC = () => {
         keyExtractor={(item) => String(item.id || item._id)}
         contentContainerStyle={{ paddingBottom: 30 }}
         renderItem={({ item }) => (
-          <TouchableOpacity style={styles.customerRow} onPress={() => openHistory(item)}>
+          <View style={styles.customerRow}>
             <View style={{ flex: 1 }}>
               <Text style={styles.customerName}>{item.name}</Text>
               <Text style={styles.customerMeta}>ID: {item.customerId}</Text>
@@ -169,8 +238,18 @@ const CustomersScreen: React.FC = () => {
               </Text>
               {item.email ? <Text style={styles.customerMeta}>{item.email}</Text> : null}
             </View>
-            <Ionicons name="receipt-outline" size={20} color="#d4a574" />
-          </TouchableOpacity>
+            <View style={styles.actionsCol}>
+              <TouchableOpacity style={styles.smallActionBtn} onPress={() => openHistory(item)}>
+                <Ionicons name="receipt-outline" size={18} color="#d4a574" />
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.smallActionBtn} onPress={() => openEdit(item)}>
+                <Ionicons name="create-outline" size={18} color="#5dade2" />
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.smallActionBtn} onPress={() => handleDeleteCustomer(item)}>
+                <Ionicons name="trash-outline" size={18} color="#e74c3c" />
+              </TouchableOpacity>
+            </View>
+          </View>
         )}
       />
 
@@ -209,6 +288,59 @@ const CustomersScreen: React.FC = () => {
               </View>
             ))}
           </ScrollView>
+        </SafeAreaView>
+      </Modal>
+
+      <Modal visible={editModal} animationType="slide" onRequestClose={() => setEditModal(false)}>
+        <SafeAreaView style={styles.container}>
+          <View style={styles.historyHeader}>
+            <Text style={styles.title}>✏️ Editar cliente</Text>
+            <TouchableOpacity onPress={() => setEditModal(false)}>
+              <Ionicons name="close" size={28} color="#f5f1e8" />
+            </TouchableOpacity>
+          </View>
+
+          <View style={styles.card}>
+            <TextInput
+              style={styles.input}
+              placeholder="ID cliente"
+              placeholderTextColor="#8b6f4e"
+              value={customerId}
+              onChangeText={setCustomerId}
+            />
+            <TextInput
+              style={styles.input}
+              placeholder="Nombre *"
+              placeholderTextColor="#8b6f4e"
+              value={name}
+              onChangeText={setName}
+            />
+            <TextInput
+              style={styles.input}
+              placeholder="Correo"
+              placeholderTextColor="#8b6f4e"
+              value={email}
+              onChangeText={setEmail}
+              autoCapitalize="none"
+            />
+            <TextInput
+              style={styles.input}
+              placeholder="Teléfono"
+              placeholderTextColor="#8b6f4e"
+              value={phone}
+              onChangeText={setPhone}
+            />
+            <TextInput
+              style={styles.input}
+              placeholder="Dirección"
+              placeholderTextColor="#8b6f4e"
+              value={address}
+              onChangeText={setAddress}
+            />
+            <TouchableOpacity style={styles.createBtn} onPress={handleUpdateCustomer}>
+              <Text style={styles.createBtnText}>Guardar cambios</Text>
+            </TouchableOpacity>
+          </View>
         </SafeAreaView>
       </Modal>
     </SafeAreaView>
@@ -250,6 +382,20 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     padding: 12,
     marginBottom: 8,
+  },
+  actionsCol: {
+    marginLeft: 10,
+    gap: 6,
+  },
+  smallActionBtn: {
+    width: 34,
+    height: 34,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#4a3428',
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#1a0f0a',
   },
   customerName: { color: '#f5f1e8', fontWeight: '700', fontSize: 15 },
   customerMeta: { color: '#c9b39b', marginTop: 2 },

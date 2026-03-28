@@ -3,6 +3,7 @@ const Sale = require('../models/Sale');
 const Product = require('../models/Product');
 const Ingredient = require('../models/Ingredient');
 const InventoryMovement = require('../models/InventoryMovement');
+const Expense = require('../models/Expense');
 const { protect } = require('../middleware/auth');
 
 const router = express.Router();
@@ -34,6 +35,8 @@ router.get('/kpis', protect, async (req, res) => {
     const match = buildDateRange(req);
     const sales = await Sale.find(match);
     const ingredients = await Ingredient.find({ isActive: true });
+    const expenseMatch = match.createdAt ? { date: match.createdAt, isActive: true } : { isActive: true };
+    const expenses = await Expense.find(expenseMatch);
 
     const totals = sales.reduce(
       (acc, sale) => {
@@ -77,6 +80,8 @@ router.get('/kpis', protect, async (req, res) => {
     );
 
     const grossProfit = totals.netSales - totals.cogs;
+    const operatingExpenses = expenses.reduce((sum, expense) => sum + Number(expense.amount || 0), 0);
+    const netAfterExpenses = grossProfit - operatingExpenses;
     const averageTicket = totals.transactions ? totals.netSales / totals.transactions : 0;
     const avgMargin = totals.netSales ? (grossProfit / totals.netSales) * 100 : 0;
 
@@ -86,6 +91,8 @@ router.get('/kpis', protect, async (req, res) => {
         grossSales: totals.grossSales,
         netSales: totals.netSales,
         grossProfit,
+        operatingExpenses,
+        netAfterExpenses,
         averageTicket,
         transactions: totals.transactions,
         itemsSold: totals.itemsSold,
@@ -96,6 +103,77 @@ router.get('/kpis', protect, async (req, res) => {
     });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+// Gastos operativos
+router.get('/expenses', protect, async (req, res) => {
+  try {
+    const range = buildDateRange(req);
+    const match = {
+      isActive: true,
+      ...(range.createdAt ? { date: range.createdAt } : {}),
+    };
+    const expenses = await Expense.find(match).sort({ date: -1 });
+    res.json({ success: true, data: expenses });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+router.post('/expenses', protect, async (req, res) => {
+  try {
+    const { date, category, description, amount, paymentMethod, reference } = req.body;
+    const expense = await Expense.create({
+      date: date ? new Date(date) : new Date(),
+      category,
+      description,
+      amount,
+      paymentMethod: paymentMethod || 'cash',
+      reference,
+      createdBy: req.user?._id,
+    });
+    res.status(201).json({ success: true, data: expense });
+  } catch (error) {
+    res.status(400).json({ success: false, message: error.message });
+  }
+});
+
+router.put('/expenses/:id', protect, async (req, res) => {
+  try {
+    const { date, category, description, amount, paymentMethod, reference, isActive } = req.body;
+    const expense = await Expense.findById(req.params.id);
+    if (!expense) {
+      return res.status(404).json({ success: false, message: 'Gasto no encontrado' });
+    }
+
+    if (date !== undefined) expense.date = new Date(date);
+    if (category !== undefined) expense.category = category;
+    if (description !== undefined) expense.description = description;
+    if (amount !== undefined) expense.amount = amount;
+    if (paymentMethod !== undefined) expense.paymentMethod = paymentMethod;
+    if (reference !== undefined) expense.reference = reference;
+    if (isActive !== undefined) expense.isActive = Boolean(isActive);
+
+    await expense.save();
+
+    res.json({ success: true, data: expense });
+  } catch (error) {
+    res.status(400).json({ success: false, message: error.message });
+  }
+});
+
+router.delete('/expenses/:id', protect, async (req, res) => {
+  try {
+    const expense = await Expense.findById(req.params.id);
+    if (!expense) {
+      return res.status(404).json({ success: false, message: 'Gasto no encontrado' });
+    }
+    expense.isActive = false;
+    await expense.save();
+    res.json({ success: true, message: 'Gasto eliminado' });
+  } catch (error) {
+    res.status(400).json({ success: false, message: error.message });
   }
 });
 
