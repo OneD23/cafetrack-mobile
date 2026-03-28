@@ -1,6 +1,6 @@
 import { createSlice, PayloadAction, createAsyncThunk } from '@reduxjs/toolkit';
 import { api } from '../api/client';
-import { addToQueue } from './offlineSlice';
+import { addToQueuePersisted } from './offlineSlice';
 
 export interface CartItem {
   id: string;
@@ -15,6 +15,8 @@ export interface CartItem {
 
 interface CartState {
   items: CartItem[];
+  taxEnabled: boolean;
+  taxRate: number;
   totals: {
     subtotal: number;
     discount: number;
@@ -26,6 +28,8 @@ interface CartState {
 
 const initialState: CartState = {
   items: [],
+  taxEnabled: true,
+  taxRate: 0.16,
   totals: {
     subtotal: 0,
     discount: 0,
@@ -35,17 +39,19 @@ const initialState: CartState = {
   processingSale: false,
 };
 
-const calculateTotals = (items: CartItem[]) => {
+const calculateTotals = (items: CartItem[], taxEnabled = true, taxRate = 0.16) => {
   const subtotal = items.reduce(
     (sum, item) => sum + Number(item.price || 0) * Number(item.quantity || 0),
     0
   );
 
+  const appliedTaxRate = taxEnabled ? Math.max(0, Number(taxRate || 0)) : 0;
+  const tax = subtotal * appliedTaxRate;
   return {
     subtotal,
     discount: 0,
-    tax: subtotal * 0.16,
-    total: subtotal * 1.16,
+    tax,
+    total: subtotal + tax,
   };
 };
 
@@ -61,7 +67,7 @@ export const processSale = createAsyncThunk(
     { getState, dispatch }
   ) => {
     const state = getState() as { cart: CartState };
-    const { items } = state.cart;
+    const { items, taxEnabled, taxRate } = state.cart;
 
     if (!items.length) {
       throw new Error('No hay productos en el carrito');
@@ -76,6 +82,8 @@ export const processSale = createAsyncThunk(
         Number(payload.discount || 0) > 0
           ? { type: 'fixed', value: Number(payload.discount || 0) }
           : { type: 'none', value: 0 },
+      applyTax: taxEnabled,
+      taxRate: taxRate,
       items: items.map((item) => ({
         productId: item.id,
         recipeId: item.recipeId || null,
@@ -106,7 +114,7 @@ export const processSale = createAsyncThunk(
       }
 
       dispatch(
-        addToQueue({
+        addToQueuePersisted({
           type: 'sale',
           data: salePayload,
         }) as any
@@ -156,12 +164,12 @@ const cartSlice = createSlice({
         });
       }
 
-      state.totals = calculateTotals(state.items);
+      state.totals = calculateTotals(state.items, state.taxEnabled, state.taxRate);
     },
 
     removeFromCart: (state, action: PayloadAction<string>) => {
       state.items = state.items.filter((item) => String(item.id) !== String(action.payload));
-      state.totals = calculateTotals(state.items);
+      state.totals = calculateTotals(state.items, state.taxEnabled, state.taxRate);
     },
 
     updateQuantity: (state, action: PayloadAction<{ id: string; qty: number }>) => {
@@ -174,7 +182,15 @@ const cartSlice = createSlice({
 
         item.quantity = Math.max(1, Math.min(Number(action.payload.qty), maxStock));
       }
-      state.totals = calculateTotals(state.items);
+      state.totals = calculateTotals(state.items, state.taxEnabled, state.taxRate);
+    },
+
+    setTaxConfig: (state, action: PayloadAction<{ enabled: boolean; rate?: number }>) => {
+      state.taxEnabled = Boolean(action.payload.enabled);
+      if (action.payload.rate !== undefined && !Number.isNaN(Number(action.payload.rate))) {
+        state.taxRate = Math.max(0, Number(action.payload.rate));
+      }
+      state.totals = calculateTotals(state.items, state.taxEnabled, state.taxRate);
     },
 
     clearCart: (state) => {
@@ -198,7 +214,7 @@ const cartSlice = createSlice({
   },
 });
 
-export const { addToCart, removeFromCart, updateQuantity, clearCart } =
+export const { addToCart, removeFromCart, updateQuantity, setTaxConfig, clearCart } =
   cartSlice.actions;
 
 export default cartSlice.reducer;

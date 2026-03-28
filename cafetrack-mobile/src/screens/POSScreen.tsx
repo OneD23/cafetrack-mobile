@@ -29,7 +29,7 @@ import { useOfflineSync } from '../hooks/useOfflineSync';
 
 const POSScreen: React.FC = () => {
   const dispatch = useDispatch<any>();
-  const { items: cartItems, totals, processingSale } = useSelector((state: any) => state.cart);
+  const { items: cartItems, totals, processingSale, taxEnabled, taxRate } = useSelector((state: any) => state.cart);
   const { products = [] } = useSelector((state: any) => state.recipes);
 
   const [selectedCategory, setSelectedCategory] = useState('all');
@@ -270,7 +270,7 @@ const POSScreen: React.FC = () => {
         lines,
         '----------------------',
         `Subtotal: $${Number(totals.subtotal || 0).toFixed(2)}`,
-        `IVA: $${Number(totals.tax || 0).toFixed(2)}`,
+        `${taxEnabled ? `IVA (${Math.round((taxRate || 0.16) * 100)}%)` : 'IVA (desactivado)'}: $${Number(totals.tax || 0).toFixed(2)}`,
         `Total: $${Number(totals.total || 0).toFixed(2)}`,
         `Pago: ${data?.method || 'cash'}`,
       ].join('\n');
@@ -472,7 +472,9 @@ const POSScreen: React.FC = () => {
               <Text style={styles.cartLineValue}>${totals.subtotal.toFixed(2)}</Text>
             </View>
             <View style={styles.cartLineRow}>
-              <Text style={styles.cartLineLabel}>ITBIS (16%)</Text>
+              <Text style={styles.cartLineLabel}>
+                {taxEnabled ? `ITBIS (${Math.round((taxRate || 0.16) * 100)}%)` : 'ITBIS (desactivado)'}
+              </Text>
               <Text style={styles.cartLineValue}>${totals.tax.toFixed(2)}</Text>
             </View>
           </View>
