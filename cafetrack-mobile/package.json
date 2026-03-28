@@ -24,6 +24,7 @@
     "date-fns": "^3.0.6",
     "expo": "~52.0.0",
     "expo-image-picker": "~16.0.6",
+    "expo-sqlite": "~15.0.6",
     "expo-camera": "^55.0.9",
     "expo-secure-store": "^55.0.8",
     "expo-status-bar": "~2.0.0",

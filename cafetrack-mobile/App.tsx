@@ -1,4 +1,5 @@
 import React from 'react';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Provider } from 'react-redux';
 import { NavigationContainer } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
@@ -7,6 +8,8 @@ import { ActivityIndicator, View, Text } from 'react-native';
 import { store } from './src/store';
 import { fetchIngredients } from './src/store/inventorySlice';
 import { restoreSession } from './src/store/authSlice';
+import { setTaxConfig } from './src/store/cartSlice';
+import { rehydrateOfflineQueue } from './src/store/offlineSlice';
 import { api } from './src/api/client';
 
 import LoginScreen from './src/screens/LoginScreen';
@@ -18,6 +21,7 @@ import CustomersScreen from './src/screens/CustomersScreen';
 import NotificationsScreen from './src/screens/NotificationsScreen';
 
 const Tab = createBottomTabNavigator();
+const TAX_SETTINGS_KEY = 'settings:tax_enabled';
 
 function MainTabs() {
   return (
@@ -67,6 +71,21 @@ function AppContent() {
   
   React.useEffect(() => {
     store.dispatch(restoreSession() as any);
+    store.dispatch(rehydrateOfflineQueue() as any);
+    AsyncStorage.getItem(TAX_SETTINGS_KEY)
+      .then((raw) => {
+        if (!raw) return;
+        const parsed = JSON.parse(raw);
+        store.dispatch(
+          setTaxConfig({
+            enabled: parsed?.enabled !== false,
+            rate: Number(parsed?.rate || 0.16),
+          })
+        );
+      })
+      .catch(() => {
+        // default tax config
+      });
     const unsubscribe = store.subscribe(() => {
       setAuthState(store.getState().auth);
     });

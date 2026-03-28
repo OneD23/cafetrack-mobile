@@ -28,7 +28,18 @@ router.post('/', protect, async (req, res) => {
   session.startTransaction();
 
   try {
-    const { items, paymentMethod, customer, customerId, discount, deviceId, syncId, operationId } = req.body;
+    const {
+      items,
+      paymentMethod,
+      customer,
+      customerId,
+      discount,
+      applyTax = true,
+      taxRate = 0.16,
+      deviceId,
+      syncId,
+      operationId
+    } = req.body;
 
     if (!Array.isArray(items) || items.length === 0) {
       throw new Error('La venta debe incluir al menos un item');
@@ -179,7 +190,9 @@ router.post('/', protect, async (req, res) => {
         : Math.min(parsedDiscount.value, subtotal);
     }
 
-    const tax = (subtotal - discountAmount) * 0.16;
+    const safeTaxRate = Math.max(0, Number(taxRate || 0));
+    const effectiveTaxRate = applyTax === false ? 0 : safeTaxRate;
+    const tax = (subtotal - discountAmount) * effectiveTaxRate;
     const total = subtotal - discountAmount + tax;
     const saleId = await generateSaleId(session);
 
