@@ -227,6 +227,27 @@ async deductIngredients(recipeId: string, quantity: number, saleId: string) {
     return this.request('/sales/dashboard/stats');
   }
 
+  // Reports BI
+  async getReportKpis(params?: any) {
+    const queryString = params ? `?${new URLSearchParams(params)}` : '';
+    return this.request(`/reports/kpis${queryString}`);
+  }
+
+  async getSalesHeatmap(params?: any) {
+    const queryString = params ? `?${new URLSearchParams(params)}` : '';
+    return this.request(`/reports/sales/heatmap${queryString}`);
+  }
+
+  async getProductProfitability(params?: any) {
+    const queryString = params ? `?${new URLSearchParams(params)}` : '';
+    return this.request(`/reports/products/profitability${queryString}`);
+  }
+
+  async getInventoryConsumptionReport(params?: any) {
+    const queryString = params ? `?${new URLSearchParams(params)}` : '';
+    return this.request(`/reports/inventory/consumption${queryString}`);
+  }
+
   async warmupOfflineBackup() {
     await Promise.allSettled([
       this.getIngredients(),
