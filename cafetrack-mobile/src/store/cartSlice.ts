@@ -1,5 +1,6 @@
 import { createSlice, PayloadAction, createAsyncThunk } from '@reduxjs/toolkit';
 import { api } from '../api/client';
+import { addToQueue } from './offlineSlice';
 
 export interface CartItem {
   id: string;
@@ -54,24 +55,27 @@ export const processSale = createAsyncThunk(
     payload: {
       paymentMethod: string;
       customerName?: string;
+      customerId?: string;
       discount?: number;
     },
-    { getState }
+    { getState, dispatch }
   ) => {
     const state = getState() as { cart: CartState };
-    const { items, totals } = state.cart;
+    const { items } = state.cart;
 
     if (!items.length) {
       throw new Error('No hay productos en el carrito');
     }
 
     const salePayload = {
+      operationId: `op-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`,
       paymentMethod: payload.paymentMethod,
-      customerName: payload.customerName || undefined,
-      discount: Number(payload.discount || 0),
-      subtotal: totals.subtotal,
-      tax: totals.tax,
-      total: totals.total,
+      customer: payload.customerName ? { name: payload.customerName } : undefined,
+      customerId: payload.customerId || undefined,
+      discount:
+        Number(payload.discount || 0) > 0
+          ? { type: 'fixed', value: Number(payload.discount || 0) }
+          : { type: 'none', value: 0 },
       items: items.map((item) => ({
         productId: item.id,
         recipeId: item.recipeId || null,
@@ -82,8 +86,47 @@ export const processSale = createAsyncThunk(
       createdAt: new Date().toISOString(),
     };
 
-    const response = await api.createSale(salePayload);
-    return response;
+    try {
+      const response = await api.createSale(salePayload);
+      return response;
+    } catch (error: any) {
+      const message = String(error?.message || '');
+      const networkLike =
+        message.toLowerCase().includes('network') ||
+        message.toLowerCase().includes('failed to fetch') ||
+        message.toLowerCase().includes('fetch') ||
+        message.toLowerCase().includes('connection') ||
+        message.toLowerCase().includes('token inválido') ||
+        message.toLowerCase().includes('unauthorized') ||
+        message.toLowerCase().includes('abort') ||
+        message.toLowerCase().includes('timeout');
+
+      if (!networkLike) {
+        throw error;
+      }
+
+      dispatch(
+        addToQueue({
+          type: 'sale',
+          data: salePayload,
+        }) as any
+      );
+
+      return {
+        offline: true,
+        data: {
+          saleId: `OFF-${Date.now()}`,
+          createdAt: new Date().toISOString(),
+          customer: salePayload.customer || null,
+        },
+      };
+    }
+  },
+  {
+    condition: (_, { getState }) => {
+      const state = getState() as any;
+      return !state.cart.processingSale;
+    }
   }
 );
 
