@@ -22,7 +22,7 @@ const customerRoutes = require('./src/routes/customers');
 const reportRoutes = require('./src/routes/reports');
 
 // Conectar a MongoDB
-connectDB();
+// Conectar a MongoDB antes de exponer el servidor
 
 const app = express();
 const server = http.createServer(app);
@@ -122,13 +122,24 @@ app.use((err, req, res, next) => {
 
 const PORT = process.env.PORT || 5000;
 
-server.listen(PORT, () => {
-  console.log(`
+const startServer = async () => {
+  try {
+    await connectDB();
+
+    server.listen(PORT, () => {
+      console.log(`
   🚀 CafeTrack API corriendo en puerto ${PORT}
   📊 MongoDB Atlas: Conectado
   🔌 Socket.io: Activo
   `);
-});
+    });
+  } catch (error) {
+    console.error('❌ No se pudo iniciar el servidor por error de base de datos');
+    process.exit(1);
+  }
+};
+
+startServer();
 
 // Manejo de errores no capturados
 process.on('unhandledRejection', (err) => {
