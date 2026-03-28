@@ -11,7 +11,9 @@
       "resizeMode": "contain",
       "backgroundColor": "#1a0f0a"
     },
-    "assetBundlePatterns": ["**/*"],
+    "assetBundlePatterns": [
+      "**/*"
+    ],
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.cafetrack.mobile"
@@ -30,7 +32,8 @@
         {
           "cameraPermission": "Permitir a CaféTrack acceder a la cámara."
         }
-      ]
+      ],
+      "expo-sqlite"
     ]
   }
 }

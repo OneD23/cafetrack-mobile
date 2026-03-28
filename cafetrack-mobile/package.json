@@ -23,14 +23,10 @@
     "axios": "^1.6.2",
     "date-fns": "^3.0.6",
     "expo": "~52.0.0",
-<<<<<<< HEAD
-=======
-    "expo-image-picker": "~16.0.6",
-    "expo-sqlite": "~15.0.6",
->>>>>>> d58d5dba5f70e4d51eeed118db92be8f7348b22a
     "expo-camera": "^55.0.9",
     "expo-image-picker": "~16.0.6",
     "expo-secure-store": "^55.0.8",
+    "expo-sqlite": "~15.1.4",
     "expo-status-bar": "~2.0.0",
     "react": "18.3.1",
     "react-dom": "18.3.1",
