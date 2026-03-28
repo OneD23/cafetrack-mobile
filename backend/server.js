@@ -20,6 +20,7 @@ const productRoutes = require('./src/routes/products');
 const saleRoutes = require('./src/routes/sales');
 const customerRoutes = require('./src/routes/customers');
 const reportRoutes = require('./src/routes/reports');
+const notificationRoutes = require('./src/routes/notifications');
 
 // Conectar a MongoDB
 // Conectar a MongoDB antes de exponer el servidor
@@ -106,6 +107,7 @@ app.use('/api/products', productRoutes);
 app.use('/api/sales', saleRoutes);
 app.use('/api/customers', customerRoutes);
 app.use('/api/reports', reportRoutes);
+app.use('/api/notifications', notificationRoutes);
 
 // Socket.io events
 socketEvents(io);

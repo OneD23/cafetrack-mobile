@@ -247,6 +247,48 @@ async deductIngredients(recipeId: string, quantity: number, saleId: string) {
     return this.request('/sales/dashboard/stats');
   }
 
+  // Notifications / Pedidos externos
+  async getNotifications(params?: { status?: string; unreadOnly?: boolean }) {
+    const queryString = params
+      ? `?${new URLSearchParams(
+          Object.entries(params).reduce((acc: Record<string, string>, [k, v]) => {
+            if (v !== undefined && v !== null) acc[k] = String(v);
+            return acc;
+          }, {})
+        )}`
+      : '';
+    return this.request(`/notifications${queryString}`);
+  }
+
+  async createNotification(payload: {
+    type?: 'delivery_order' | 'system' | 'inventory';
+    title?: string;
+    message?: string;
+    orderNumber?: string;
+    driverName?: string;
+    customerName?: string;
+    customerPhone?: string;
+    deliveryAddress?: string;
+    source?: string;
+    metadata?: any;
+  }) {
+    return this.request('/notifications', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
+  }
+
+  async updateNotification(notificationId: string, payload: {
+    status?: 'new' | 'in_progress' | 'completed' | 'cancelled';
+    isRead?: boolean;
+    isActive?: boolean;
+  }) {
+    return this.request(`/notifications/${notificationId}`, {
+      method: 'PATCH',
+      body: JSON.stringify(payload),
+    });
+  }
+
   // Reports BI
   async getReportKpis(params?: any) {
     const queryString = params ? `?${new URLSearchParams(params)}` : '';
@@ -313,6 +355,7 @@ async deductIngredients(recipeId: string, quantity: number, saleId: string) {
       this.getIngredients(),
       this.getProducts(),
       this.getCustomers(),
+      this.getNotifications({ unreadOnly: true }),
       this.getSales({ limit: '200' }),
       this.getDashboardStats(),
     ]);
