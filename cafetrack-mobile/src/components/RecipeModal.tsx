@@ -11,6 +11,7 @@ import {
   Image,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import * as ImagePicker from 'expo-image-picker';
 import { useSelector, useDispatch } from 'react-redux';
 import {
   createProductWithRecipe,
@@ -48,6 +49,41 @@ export const RecipeModal: React.FC<RecipeModalProps> = ({
   const [selectedIngredients, setSelectedIngredients] = useState<RecipeItem[]>([]);
   const [prepTime, setPrepTime] = useState('2');
   const [recipeImage, setRecipeImage] = useState(editingProduct?.image || '');
+  const [uploadingImage, setUploadingImage] = useState(false);
+
+  useEffect(() => {
+    if (!visible) return;
+
+    if (editingProduct) {
+      setName(editingProduct?.name || '');
+      setPrice(editingProduct?.price?.toString() || '');
+      setCategory(editingProduct?.category || 'coffee');
+      setRecipeImage(editingProduct?.image || '');
+
+      const existingRecipe = recipes.find(
+        (r: any) => String(r.productId) === String(editingProduct.id || editingProduct._id)
+      );
+      if (existingRecipe?.items) {
+        setSelectedIngredients(
+          existingRecipe.items.map((item: any) => ({
+            ingredientId: String(item.ingredientId),
+            quantity: Number(item.quantity || 0),
+          }))
+        );
+        setPrepTime(String(existingRecipe.preparationTime || '2'));
+      } else {
+        setSelectedIngredients([]);
+        setPrepTime('2');
+      }
+    } else {
+      setName('');
+      setPrice('');
+      setCategory('coffee');
+      setSelectedIngredients([]);
+      setPrepTime('2');
+      setRecipeImage('');
+    }
+  }, [editingProduct, recipes, visible]);
 
   useEffect(() => {
     if (!visible) return;
@@ -178,6 +214,47 @@ export const RecipeModal: React.FC<RecipeModalProps> = ({
     }
   };
 
+  const pickImageFromDevice = async () => {
+    try {
+      setUploadingImage(true);
+      const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (!permission.granted) {
+        Alert.alert('Permiso requerido', 'Debes permitir acceso a galería para subir una imagen');
+        return;
+      }
+
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        quality: 0.6,
+        allowsEditing: true,
+        base64: true,
+      });
+
+      if (result.canceled || !result.assets?.length) return;
+      const asset = result.assets[0];
+      if (!asset.base64) {
+        Alert.alert('Error', 'No se pudo procesar la imagen seleccionada');
+        return;
+      }
+
+      const mimeType = asset.mimeType || 'image/jpeg';
+      const dataUri = `data:${mimeType};base64,${asset.base64}`;
+      const approxBytes = Math.ceil((asset.base64.length * 3) / 4);
+      const maxBytes = 2 * 1024 * 1024;
+      if (approxBytes > maxBytes) {
+        Alert.alert('Imagen muy grande', 'Elige una imagen menor a 2MB para mejor rendimiento');
+        return;
+      }
+
+      setRecipeImage(dataUri);
+      Alert.alert('Imagen cargada', 'La imagen del producto fue cargada desde tu dispositivo');
+    } catch (error: any) {
+      Alert.alert('Error', error?.message || 'No se pudo seleccionar la imagen');
+    } finally {
+      setUploadingImage(false);
+    }
+  };
+
   return (
     <Modal visible={visible} transparent animationType="slide">
       <View style={styles.overlay}>
@@ -220,6 +297,13 @@ export const RecipeModal: React.FC<RecipeModalProps> = ({
               placeholderTextColor="#8b6f4e"
               autoCapitalize="none"
             />
+
+            <TouchableOpacity style={styles.uploadBtn} onPress={pickImageFromDevice} disabled={uploadingImage}>
+              <Ionicons name="image-outline" size={18} color="#1a0f0a" />
+              <Text style={styles.uploadBtnText}>
+                {uploadingImage ? 'Cargando imagen...' : 'Subir imagen desde dispositivo'}
+              </Text>
+            </TouchableOpacity>
 
             {recipeImage ? (
               <Image source={{ uri: recipeImage }} style={styles.previewImage} />
@@ -362,6 +446,22 @@ const styles = StyleSheet.create({
     fontSize: 16,
     borderWidth: 1,
     borderColor: '#4a3428',
+  },
+  uploadBtn: {
+    marginTop: 6,
+    marginBottom: 8,
+    backgroundColor: '#d4a574',
+    borderRadius: 10,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexDirection: 'row',
+    gap: 8,
+  },
+  uploadBtnText: {
+    color: '#1a0f0a',
+    fontWeight: '700',
   },
   previewImage: {
     width: '100%',
