@@ -10,7 +10,9 @@ import {
   StatusBar,
   Alert,
   ScrollView,
+  Platform,
 } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useSelector, useDispatch } from 'react-redux';
 import { Ionicons } from '@expo/vector-icons';
 import {
@@ -21,6 +23,9 @@ import {
 } from '../store/cartSlice';
 import { PaymentModal } from '../components/PaymentModal';
 import { fetchProducts } from '../store/recipesSlice';
+import { logout } from '../store/authSlice';
+import { api } from '../api/client';
+import { useOfflineSync } from '../hooks/useOfflineSync';
 
 const POSScreen: React.FC = () => {
   const dispatch = useDispatch<any>();
@@ -33,11 +38,61 @@ const POSScreen: React.FC = () => {
   const [cashRegister, setCashRegister] = useState({
     isOpen: false,
     openingAmount: 0,
+    openedAt: null as string | null,
   });
+  const { syncOfflineQueue, pendingCount } = useOfflineSync();
+  const [isClosingRegister, setIsClosingRegister] = useState(false);
+  const [isOnline, setIsOnline] = useState(
+    typeof navigator !== 'undefined' ? navigator.onLine : true
+  );
+
+  useEffect(() => {
+    const restoreCashRegister = async () => {
+      try {
+        const raw = await AsyncStorage.getItem('cash_register_state');
+        if (!raw) return;
+        const saved = JSON.parse(raw);
+        if (saved?.isOpen) {
+          setCashRegister({
+            isOpen: true,
+            openingAmount: Number(saved.openingAmount || 0),
+            openedAt: saved.openedAt || null,
+          });
+        }
+      } catch (error) {
+        console.warn('No se pudo restaurar el estado de caja');
+      }
+    };
+    restoreCashRegister();
+  }, []);
+
+  useEffect(() => {
+    AsyncStorage.setItem('cash_register_state', JSON.stringify(cashRegister));
+  }, [cashRegister]);
 
   useEffect(() => {
     dispatch(fetchProducts());
   }, [dispatch]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    const handleOnline = async () => {
+      setIsOnline(true);
+      const result = await syncOfflineQueue();
+      if ((result as any)?.synced > 0) {
+        Alert.alert('Sincronización', `Se sincronizaron ${(result as any).synced} operación(es) pendientes.`);
+      }
+    };
+    const handleOffline = () => setIsOnline(false);
+
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
+  }, [syncOfflineQueue]);
 
   const categories = useMemo(() => {
     const unique = new Set<string>();
@@ -60,11 +115,118 @@ const POSScreen: React.FC = () => {
   }, [products, selectedCategory, searchQuery]);
 
   const handleOpenRegister = () => {
-    setCashRegister({ isOpen: true, openingAmount: 0 });
+    setCashRegister({ isOpen: true, openingAmount: 0, openedAt: new Date().toISOString() });
   };
 
   const handleCloseRegister = () => {
-    setCashRegister({ isOpen: false, openingAmount: 0 });
+    const printCloseReport = async () => {
+      const now = new Date();
+      const startDate = cashRegister.openedAt ? new Date(cashRegister.openedAt) : new Date(now);
+      if (!cashRegister.openedAt) {
+        startDate.setHours(0, 0, 0, 0);
+      }
+
+      const response = await api.getSales({
+        startDate: startDate.toISOString(),
+        endDate: now.toISOString(),
+        limit: '1000',
+      });
+
+      const sales = response?.data || [];
+      const totals = sales.reduce(
+        (acc: any, sale: any) => {
+          acc.count += 1;
+          acc.subtotal += Number(sale.subtotal || 0);
+          acc.tax += Number(sale.tax || 0);
+          acc.discount += Number(sale.discount?.amount || 0);
+          acc.total += Number(sale.total || 0);
+          const method = sale.paymentMethod || 'unknown';
+          acc.methods[method] = (acc.methods[method] || 0) + Number(sale.total || 0);
+          return acc;
+        },
+        { count: 0, subtotal: 0, discount: 0, tax: 0, total: 0, methods: {} as Record<string, number> }
+      );
+
+      const report = [
+        '📊 REPORTE DE CIERRE DE CAJA',
+        `Fecha: ${now.toLocaleString()}`,
+        '=================================',
+        `Caja abrió: ${cashRegister.openedAt ? new Date(cashRegister.openedAt).toLocaleString() : 'No registrado'}`,
+        `Caja cerró: ${now.toLocaleString()}`,
+        `Monto apertura: $${Number(cashRegister.openingAmount || 0).toFixed(2)}`,
+        `Ventas del día: ${totals.count}`,
+        `Subtotal: $${totals.subtotal.toFixed(2)}`,
+        `Descuentos: $${totals.discount.toFixed(2)}`,
+        `Impuestos: $${totals.tax.toFixed(2)}`,
+        `Total neto: $${totals.total.toFixed(2)}`,
+        '--- Por método de pago ---',
+        ...Object.entries(totals.methods).map(([method, value]) => `${method}: $${Number(value).toFixed(2)}`),
+        '=================================',
+        'El usuario será deslogueado por cierre de caja.',
+      ].join('\n');
+
+      try {
+        const rawHistory = await AsyncStorage.getItem('cash_register_history');
+        const history = rawHistory ? JSON.parse(rawHistory) : [];
+        history.unshift({
+          openedAt: cashRegister.openedAt,
+          closedAt: now.toISOString(),
+          openingAmount: Number(cashRegister.openingAmount || 0),
+          totals,
+          report,
+        });
+        await AsyncStorage.setItem('cash_register_history', JSON.stringify(history.slice(0, 30)));
+      } catch (error) {
+        console.warn('No se pudo guardar historial de cierre de caja');
+      }
+
+      if (Platform.OS === 'web' && typeof window !== 'undefined') {
+        const printWindow = window.open('', '_blank', 'width=420,height=700');
+        if (printWindow) {
+          printWindow.document.write(`<pre style="font-family: monospace; font-size: 13px; padding: 16px;">${report}</pre>`);
+          printWindow.document.close();
+          printWindow.focus();
+          printWindow.print();
+        } else {
+          Alert.alert('Reporte de cierre', report);
+        }
+      } else {
+        Alert.alert('Reporte de cierre', report);
+      }
+    };
+
+    const closeFlow = async () => {
+      setIsClosingRegister(true);
+      try {
+        await printCloseReport();
+      } catch (error: any) {
+        Alert.alert('Advertencia', error?.message || 'No se pudo imprimir reporte de cierre.');
+      } finally {
+        setCashRegister({ isOpen: false, openingAmount: 0, openedAt: null });
+        await AsyncStorage.removeItem('cash_register_state');
+        setIsClosingRegister(false);
+        dispatch(logout());
+      }
+    };
+
+    if (Platform.OS === 'web' && typeof window !== 'undefined') {
+      const confirmed = window.confirm(
+        'Se imprimirá el reporte del periodo de caja y se cerrará la sesión. ¿Continuar?'
+      );
+      if (confirmed) {
+        closeFlow();
+      }
+      return;
+    }
+
+    Alert.alert('Cerrar caja', 'Se imprimirá el reporte del periodo y se cerrará la sesión. ¿Continuar?', [
+      { text: 'Cancelar', style: 'cancel' },
+      {
+        text: 'Cerrar caja',
+        style: 'destructive',
+        onPress: closeFlow,
+      },
+    ]);
   };
 
   const handleAddToCart = (product: any) => {
@@ -91,19 +253,73 @@ const POSScreen: React.FC = () => {
   };
 
   const handleConfirmPayment = async (data: any) => {
+    const soldItems = cartItems.map((item: any) => ({ ...item }));
+
+    const printTicket = (sale: any) => {
+      const saleId = sale?.saleId || 'N/A';
+      const createdAt = sale?.createdAt ? new Date(sale.createdAt).toLocaleString() : new Date().toLocaleString();
+      const lines = soldItems
+        .map((item: any) => `${item.quantity} x ${item.name}  $${(Number(item.price || 0) * Number(item.quantity || 0)).toFixed(2)}`)
+        .join('\n');
+      const ticketText = [
+        '☕ CAFE TRACK',
+        `Factura #: ${saleId}`,
+        `Fecha: ${createdAt}`,
+        `Cliente: ${sale?.customer?.name || data?.customer?.name || 'Consumidor final'}`,
+        '----------------------',
+        lines,
+        '----------------------',
+        `Subtotal: $${Number(totals.subtotal || 0).toFixed(2)}`,
+        `IVA: $${Number(totals.tax || 0).toFixed(2)}`,
+        `Total: $${Number(totals.total || 0).toFixed(2)}`,
+        `Pago: ${data?.method || 'cash'}`,
+      ].join('\n');
+
+      if (Platform.OS === 'web' && typeof window !== 'undefined') {
+        const printWindow = window.open('', '_blank', 'width=380,height=600');
+        if (printWindow) {
+          printWindow.document.write(`<pre style="font-family: monospace; font-size: 14px; padding: 16px;">${ticketText}</pre>`);
+          printWindow.document.close();
+          printWindow.focus();
+          printWindow.print();
+          return;
+        }
+      }
+
+      Alert.alert('Ticket de venta', ticketText);
+    };
+
     try {
-      await dispatch(
+      const response = await dispatch(
         processSale({
           paymentMethod: data?.method || 'cash',
           customerName: data?.customer?.name || undefined,
+          customerId: data?.customer?.id || undefined,
           discount: Number(data?.discount || 0),
         })
       ).unwrap();
 
       setShowPaymentModal(false);
-      Alert.alert('Venta completada', 'La venta se registró correctamente.');
+      printTicket(response?.data);
+      if (response?.offline) {
+        Alert.alert(
+          'Venta guardada sin internet',
+          'La venta se guardó localmente y se sincronizará cuando vuelva la conexión.'
+        );
+      } else {
+        Alert.alert('Venta completada', 'La venta se registró correctamente.');
+      }
     } catch (error: any) {
-      Alert.alert('Error al vender', error?.message || 'No se pudo completar la venta.');
+      const message = String(error?.message || 'No se pudo completar la venta.');
+      if (message.toLowerCase().includes('stock insuficiente')) {
+        Alert.alert(
+          'Stock insuficiente',
+          `${message}\n\nTip: repón ingredientes desde Inventario antes de volver a cobrar.`
+        );
+        return;
+      }
+
+      Alert.alert('Error al vender', message);
     }
   };
 
@@ -118,6 +334,25 @@ const POSScreen: React.FC = () => {
           <Text style={styles.statTotal}>${totals.total.toFixed(2)}</Text>
         </View>
       </View>
+      <Text style={[styles.networkText, { color: isOnline ? '#27ae60' : '#e67e22' }]}>
+        {isOnline ? '🟢 En línea' : '🟠 Sin internet (modo local)'}
+      </Text>
+      {pendingCount > 0 ? (
+        <View style={styles.pendingSyncRow}>
+          <Text style={styles.pendingSyncText}>⏳ Pendiente por sincronizar: {pendingCount}</Text>
+          <TouchableOpacity
+            style={styles.syncNowBtn}
+            onPress={async () => {
+              const result = await syncOfflineQueue();
+              if ((result as any)?.synced > 0) {
+                Alert.alert('Sincronización', `Se sincronizaron ${(result as any).synced} operación(es).`);
+              }
+            }}
+          >
+            <Text style={styles.syncNowText}>Sincronizar</Text>
+          </TouchableOpacity>
+        </View>
+      ) : null}
 
       <View style={styles.cashBox}>
         <Text style={styles.cashLabel}>
@@ -127,11 +362,13 @@ const POSScreen: React.FC = () => {
           style={[
             styles.cashBtn,
             cashRegister.isOpen ? styles.cashBtnClose : styles.cashBtnOpen,
+            isClosingRegister && { opacity: 0.7 },
           ]}
+          disabled={isClosingRegister}
           onPress={cashRegister.isOpen ? handleCloseRegister : handleOpenRegister}
         >
           <Text style={styles.cashBtnText}>
-            {cashRegister.isOpen ? 'Cerrar caja' : 'Abrir caja'}
+            {cashRegister.isOpen ? (isClosingRegister ? 'Cerrando...' : 'Cerrar caja') : 'Abrir caja'}
           </Text>
         </TouchableOpacity>
       </View>
@@ -147,7 +384,12 @@ const POSScreen: React.FC = () => {
         />
       </View>
 
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.categoriesRow}>
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        style={styles.categoriesScroller}
+        contentContainerStyle={styles.categoriesRow}
+      >
         {categories.map((category) => {
           const isActive = selectedCategory === category;
           return (
@@ -260,6 +502,20 @@ const styles = StyleSheet.create({
   stats: { alignItems: 'flex-end' },
   stat: { color: '#8b6f4e', fontSize: 12 },
   statTotal: { color: '#d4a574', fontSize: 18, fontWeight: 'bold' },
+  networkText: {
+    fontSize: 12,
+    paddingHorizontal: 16,
+    marginTop: -8,
+    marginBottom: 6,
+    fontWeight: '700',
+  },
+  pendingSyncRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    marginBottom: 4,
+  },
   cashBox: {
     marginHorizontal: 16,
     marginBottom: 12,
@@ -291,16 +547,21 @@ const styles = StyleSheet.create({
   searchInput: { flex: 1, padding: 12, color: '#f5f1e8', fontSize: 16 },
   categoriesRow: {
     paddingHorizontal: 16,
-    paddingBottom: 8,
+    paddingBottom: 6,
+    alignItems: 'center',
     gap: 8,
+  },
+  categoriesScroller: {
+    maxHeight: 48,
+    minHeight: 44,
   },
   categoryChip: {
     backgroundColor: '#2c1810',
     borderColor: '#4a3428',
     borderWidth: 1,
-    borderRadius: 16,
+    borderRadius: 14,
     paddingHorizontal: 12,
-    paddingVertical: 8,
+    paddingVertical: 6,
   },
   categoryChipActive: {
     backgroundColor: '#d4a574',
@@ -311,6 +572,24 @@ const styles = StyleSheet.create({
     fontSize: 12,
     textTransform: 'capitalize',
     fontWeight: '600',
+  },
+  pendingSyncText: {
+    color: '#f1c27d',
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  syncNowBtn: {
+    backgroundColor: '#2c1810',
+    borderWidth: 1,
+    borderColor: '#4a3428',
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 8,
+  },
+  syncNowText: {
+    color: '#d4a574',
+    fontSize: 11,
+    fontWeight: '700',
   },
   categoryChipTextActive: {
     color: '#1a0f0a',

@@ -46,6 +46,33 @@ export const InventoryScreen: React.FC = () => {
 
   const units = ['g', 'ml', 'unidad', 'oz'];
 
+  const promptForValue = (
+    title: string,
+    message: string,
+    onConfirm: (value: string) => void
+  ) => {
+    if (Platform.OS === 'web' && typeof window !== 'undefined') {
+      const value = window.prompt(message, '');
+      if (value !== null) onConfirm(value);
+      return;
+    }
+
+    if (typeof (Alert as any).prompt === 'function') {
+      (Alert as any).prompt(
+        title,
+        message,
+        [
+          { text: 'Cancelar', style: 'cancel' },
+          { text: 'Aceptar', onPress: (value: string) => onConfirm(value || '') },
+        ],
+        'plain-text'
+      );
+      return;
+    }
+
+    Alert.alert('No disponible', 'Esta acción requiere entrada manual en iOS o web.');
+  };
+
   const handleAddIngredient = () => {
     if (!ingName || !ingStock || !ingMinStock || !ingCost) {
       Alert.alert('Error', 'Completa todos los campos');
@@ -82,38 +109,27 @@ export const InventoryScreen: React.FC = () => {
   };
 
   const handleRestock = (ingredient: any) => {
-    Alert.prompt(
-      'Reposición',
-      `Cantidad a añadir a ${ingredient.name}:`,
-      [
-        { text: 'Cancelar', style: 'cancel' },
-        {
-          text: 'Añadir',
-          onPress: (value) => {
-            const qty = parseFloat(value || '0');
-            if (qty > 0) {
-              dispatch(
-                restockIngredient({
-                  ingredientId: entityId(ingredient),
-                  quantity: qty,
-                  reason: 'Reposición manual',
-                }) as any
-              );
+    promptForValue('Reposición', `Cantidad a añadir a ${ingredient.name}:`, (value) => {
+      const qty = parseFloat(value || '0');
+      if (qty > 0) {
+        dispatch(
+          restockIngredient({
+            ingredientId: entityId(ingredient),
+            quantity: qty,
+            reason: 'Reposición manual',
+          }) as any
+        );
 
-              dispatch(
-                addJournalEntry({
-                  direction: 'in',
-                  category: 'inventory',
-                  description: `Reposición: ${ingredient.name}`,
-                  amount: qty * (ingredient.costPerUnit || 0),
-                }) as any
-              );
-            }
-          },
-        },
-      ],
-      'plain-text'
-    );
+        dispatch(
+          addJournalEntry({
+            direction: 'in',
+            category: 'inventory',
+            description: `Reposición: ${ingredient.name}`,
+            amount: qty * (ingredient.costPerUnit || 0),
+          }) as any
+        );
+      }
+    });
   };
 
   const handleDeleteProduct = (product: any) => {
@@ -199,7 +215,7 @@ export const InventoryScreen: React.FC = () => {
           <TouchableOpacity
             style={styles.actionBtn}
             onPress={() => {
-              Alert.prompt('Ajuste', 'Nuevo stock:', (value) => {
+              promptForValue('Ajuste', 'Nuevo stock:', (value) => {
                 const newStock = parseFloat(value || '0');
                 if (!isNaN(newStock)) {
                   const diff = newStock - Number(item.stock || 0);

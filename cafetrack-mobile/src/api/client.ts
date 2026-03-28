@@ -39,15 +39,24 @@ class ApiClient {
 
   private async request(endpoint: string, options: any = {}) {
     const token = await this.getToken();
+    const method = String(options.method || 'GET').toUpperCase();
+    const cacheKey = `backup:${endpoint}`;
     
     const config = {
       ...options,
+      signal: options.signal,
       headers: {
         'Content-Type': 'application/json',
         ...(token && { Authorization: `Bearer ${token}` }),
         ...options.headers,
       },
     };
+
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 10000);
+    if (!config.signal) {
+      config.signal = controller.signal;
+    }
 
     try {
       const response = await fetch(`${this.baseUrl}${endpoint}`, config);
@@ -57,10 +66,28 @@ class ApiClient {
         throw new Error(data.message || 'Error en la petición');
       }
 
+      if (method === 'GET' && endpoint !== '/auth/login') {
+        await AsyncStorage.setItem(cacheKey, JSON.stringify(data));
+      }
+
       return data;
-    } catch (error) {
+    } catch (error: any) {
+      if (method === 'GET') {
+        const cached = await AsyncStorage.getItem(cacheKey);
+        if (cached) {
+          return JSON.parse(cached);
+        }
+      }
+
+      if (String(error?.message || '').toLowerCase().includes('token inválido')) {
+        await AsyncStorage.removeItem('token');
+        await AsyncStorage.removeItem('user');
+      }
+
       console.error('API Error:', error);
       throw error;
+    } finally {
+      clearTimeout(timeoutId);
     }
   }
 
@@ -147,12 +174,48 @@ async deductIngredients(recipeId: string, quantity: number, saleId: string) {
     });
   }
 
+  async updateProduct(id: string, payload: any) {
+    return this.request(`/products/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(payload),
+    });
+  }
+
+  async deleteProduct(id: string) {
+    return this.request(`/products/${id}`, {
+      method: 'DELETE',
+    });
+  }
+
   // Sales
   async createSale(saleData: any) {
     return this.request('/sales', {
       method: 'POST',
       body: JSON.stringify(saleData),
     });
+  }
+
+  // Customers
+  async getCustomers(search?: string) {
+    const query = search ? `?search=${encodeURIComponent(search)}` : '';
+    return this.request(`/customers${query}`);
+  }
+
+  async createCustomer(payload: {
+    customerId?: string;
+    name: string;
+    email?: string;
+    phone?: string;
+    address?: string;
+  }) {
+    return this.request('/customers', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
+  }
+
+  async getCustomerHistory(customerMongoId: string) {
+    return this.request(`/customers/${customerMongoId}/history`);
   }
 
   async getSales(params?: any) {
@@ -162,6 +225,37 @@ async deductIngredients(recipeId: string, quantity: number, saleId: string) {
 
   async getDashboardStats() {
     return this.request('/sales/dashboard/stats');
+  }
+
+  // Reports BI
+  async getReportKpis(params?: any) {
+    const queryString = params ? `?${new URLSearchParams(params)}` : '';
+    return this.request(`/reports/kpis${queryString}`);
+  }
+
+  async getSalesHeatmap(params?: any) {
+    const queryString = params ? `?${new URLSearchParams(params)}` : '';
+    return this.request(`/reports/sales/heatmap${queryString}`);
+  }
+
+  async getProductProfitability(params?: any) {
+    const queryString = params ? `?${new URLSearchParams(params)}` : '';
+    return this.request(`/reports/products/profitability${queryString}`);
+  }
+
+  async getInventoryConsumptionReport(params?: any) {
+    const queryString = params ? `?${new URLSearchParams(params)}` : '';
+    return this.request(`/reports/inventory/consumption${queryString}`);
+  }
+
+  async warmupOfflineBackup() {
+    await Promise.allSettled([
+      this.getIngredients(),
+      this.getProducts(),
+      this.getCustomers(),
+      this.getSales({ limit: '200' }),
+      this.getDashboardStats(),
+    ]);
   }
 }
 
