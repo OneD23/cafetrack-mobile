@@ -1,7 +1,7 @@
 {
   "name": "cafetrack-mobile",
   "version": "2.0.0",
-  "main": "index.ts",
+  "main": "node_modules/expo/AppEntry.js",
   "scripts": {
     "prestart": "npm run check:screens",
     "start": "expo start",
@@ -23,10 +23,11 @@
     "axios": "^1.6.2",
     "date-fns": "^3.0.6",
     "expo": "~52.0.0",
+    "expo-image-picker": "~16.0.6",
+    "expo-sqlite": "~15.0.6",
     "expo-camera": "^55.0.9",
     "expo-image-picker": "~16.0.6",
     "expo-secure-store": "^55.0.8",
-    "expo-sqlite": "~15.1.4",
     "expo-status-bar": "~2.0.0",
     "react": "18.3.1",
     "react-dom": "18.3.1",

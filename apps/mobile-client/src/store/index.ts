@@ -5,6 +5,10 @@ import cartReducer from './cartSlice';
 import inventoryReducer from './inventorySlice';
 import recipesReducer from './recipesSlice';
 import offlineReducer from './offlineSlice';
+import superAuthReducer from './superAuthSlice';
+import superBusinessReducer from './superBusinessSlice';
+import superCartReducer from './superCartSlice';
+import superOrdersReducer from './superOrdersSlice';
 
 export const store = configureStore({
   reducer: {
@@ -13,6 +17,10 @@ export const store = configureStore({
     inventory: inventoryReducer,
     recipes: recipesReducer,
     offline: offlineReducer,
+    superAuth: superAuthReducer,
+    superBusiness: superBusinessReducer,
+    superCart: superCartReducer,
+    superOrders: superOrdersReducer,
   },
   middleware: (getDefaultMiddleware: any) =>
     getDefaultMiddleware({
