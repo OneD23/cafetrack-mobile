@@ -40,14 +40,16 @@ export interface BusinessItem {
   products: ProductItem[];
 }
 
-export type OrderStatus = 'pending' | 'accepted' | 'preparing' | 'on_the_way' | 'delivered' | 'cancelled';
+export type OrderStatus = 'pending' | 'accepted' | 'preparing' | 'ready' | 'cancelled';
 
 export interface OrderItem {
   productId: string;
-  productName: string;
+  productName?: string;
+  name?: string;
   quantity: number;
   unitPrice: number;
 }
+
 
 export interface Address {
   id: string;
@@ -69,6 +71,8 @@ export interface Order {
   businessName: string;
   items: OrderItem[];
   total: number;
+  subtotal?: number;
+  tax?: number;
   status: OrderStatus;
   createdAt: string;
   address: Address;

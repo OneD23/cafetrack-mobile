@@ -4,17 +4,35 @@ import { Order } from '../types/superApp';
 
 interface SuperOrdersState {
   orders: Order[];
+  selectedOrder: Order | null;
   isLoading: boolean;
 }
 
 const initialState: SuperOrdersState = {
   orders: [],
+  selectedOrder: null,
   isLoading: false,
 };
 
-export const fetchOrders = createAsyncThunk('superOrders/fetchOrders', async () => {
-  return superAppApi.getOrders();
+export const fetchMyOrders = createAsyncThunk('superOrders/fetchMyOrders', async (payload: { userId: string }) => {
+  return superAppApi.getMyOrders(payload.userId);
 });
+
+export const fetchOrderById = createAsyncThunk('superOrders/fetchOrderById', async (payload: { orderId: string }) => {
+  return superAppApi.getOrderById(payload.orderId);
+});
+
+export const createClientOrder = createAsyncThunk(
+  'superOrders/createClientOrder',
+  async (payload: {
+    userId: string;
+    businessId: string;
+    items: Array<{ productId: string; name: string; quantity: number; unitPrice: number }>;
+    notes?: string;
+  }) => {
+    return superAppApi.createOrder(payload);
+  }
+);
 
 const superOrdersSlice = createSlice({
   name: 'superOrders',
@@ -22,15 +40,22 @@ const superOrdersSlice = createSlice({
   reducers: {},
   extraReducers(builder) {
     builder
-      .addCase(fetchOrders.pending, (state) => {
+      .addCase(fetchMyOrders.pending, (state) => {
         state.isLoading = true;
       })
-      .addCase(fetchOrders.fulfilled, (state, action) => {
+      .addCase(fetchMyOrders.fulfilled, (state, action) => {
         state.isLoading = false;
         state.orders = action.payload;
       })
-      .addCase(fetchOrders.rejected, (state) => {
+      .addCase(fetchMyOrders.rejected, (state) => {
         state.isLoading = false;
+      })
+      .addCase(fetchOrderById.fulfilled, (state, action) => {
+        state.selectedOrder = action.payload;
+      })
+      .addCase(createClientOrder.fulfilled, (state, action) => {
+        state.orders = [action.payload, ...state.orders];
+        state.selectedOrder = action.payload;
       });
   },
 });

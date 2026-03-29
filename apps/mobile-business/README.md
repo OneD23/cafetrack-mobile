@@ -5,6 +5,7 @@ App móvil para dueños de negocio (ejemplo: cafetería/cafetruck), enfocada en 
 ## Estado
 
 - Usa el flujo de negocio que ya estaba configurado (POS, inventario, clientes, notificaciones, contabilidad y ajustes).
+- Incluye pantalla `Pedidos OneD Hub` para gestionar pedidos externos (aceptar/rechazar/cambiar estado).
 - Reutiliza temporalmente módulos de `apps/mobile-client/src/*` para evitar ruptura mientras se completa una separación total.
 
 ## Ejecutar

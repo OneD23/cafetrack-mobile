@@ -11,6 +11,17 @@ import { mockAddresses, mockBusinesses, mockCategories, mockOrders, mockPaymentM
 
 const wait = (ms = 250) => new Promise((resolve) => setTimeout(resolve, ms));
 
+const defaultProductsForBusiness = (businessId: string) => [
+  {
+    id: `${businessId}-default-1`,
+    businessId,
+    name: 'Producto OneD Hub',
+    description: 'Producto base para pedidos Fase 1',
+    price: 8.99,
+    available: true,
+  },
+];
+
 export const superAppApi = {
   async login(email: string): Promise<AuthSession> {
     await wait();
@@ -55,13 +66,40 @@ export const superAppApi = {
         rating: Number(business.rating || 4.5),
         etaMinutes: Number(business.etaMinutes || 35),
         distanceKm: Number(business.distanceKm || 2),
-        products: [],
+        products: defaultProductsForBusiness(business.id),
       }));
     } catch (_) {
-      // Si backend no responde, usamos catálogo mock para desarrollo local.
+      // fallback local para desarrollo cuando backend no está disponible.
+      return mockBusinesses;
     }
+  },
 
-    return mockBusinesses;
+  async createOrder(payload: {
+    userId: string;
+    businessId: string;
+    items: Array<{ productId: string; name: string; quantity: number; unitPrice: number }>;
+    notes?: string;
+  }): Promise<Order> {
+    const response = await api.createOrder(payload);
+    return response.data;
+  },
+
+  async getMyOrders(userId: string): Promise<Order[]> {
+    try {
+      const response = await api.getMyOrders(userId);
+      return Array.isArray(response?.data) ? response.data : [];
+    } catch (_) {
+      return mockOrders;
+    }
+  },
+
+  async getOrderById(orderId: string): Promise<Order | null> {
+    try {
+      const response = await api.getOrderById(orderId);
+      return response?.data || null;
+    } catch (_) {
+      return mockOrders.find((item) => item.id === orderId) || null;
+    }
   },
 
   async getAddresses(): Promise<Address[]> {
@@ -70,9 +108,5 @@ export const superAppApi = {
 
   async getPaymentMethods(): Promise<PaymentMethod[]> {
     return mockPaymentMethods;
-  },
-
-  async getOrders(): Promise<Order[]> {
-    return mockOrders;
   },
 };

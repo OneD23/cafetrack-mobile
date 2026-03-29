@@ -192,6 +192,38 @@ async deductIngredients(recipeId: string, quantity: number, saleId: string) {
     });
   }
 
+
+  async createOrder(payload: {
+    userId: string;
+    businessId: string;
+    items: Array<{ productId: string; name: string; quantity: number; unitPrice: number }>;
+    notes?: string;
+  }) {
+    return this.request('/v1/orders', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
+  }
+
+  async getMyOrders(userId: string) {
+    return this.request(`/v1/orders/my-orders?userId=${encodeURIComponent(userId)}`);
+  }
+
+  async getOrderById(orderId: string) {
+    return this.request(`/v1/orders/${orderId}`);
+  }
+
+  async getBusinessOrders(businessId: string) {
+    return this.request(`/v1/orders/business/${businessId}`);
+  }
+
+  async updateOrderStatus(orderId: string, status: 'pending' | 'accepted' | 'preparing' | 'ready' | 'cancelled') {
+    return this.request(`/v1/orders/${orderId}/status`, {
+      method: 'PATCH',
+      body: JSON.stringify({ status }),
+    });
+  }
+
   // Sales
   async createSale(saleData: any) {
     return this.request('/sales', {

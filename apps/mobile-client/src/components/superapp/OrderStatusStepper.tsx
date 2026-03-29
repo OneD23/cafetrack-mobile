@@ -2,14 +2,13 @@ import React from 'react';
 import { Text, View } from 'react-native';
 import { OrderStatus } from '../../types/superApp';
 
-const flow: OrderStatus[] = ['pending', 'accepted', 'preparing', 'on_the_way', 'delivered'];
+const flow: OrderStatus[] = ['pending', 'accepted', 'preparing', 'ready'];
 
 const labels: Record<OrderStatus, string> = {
   pending: 'Pendiente',
   accepted: 'Aceptado',
   preparing: 'Preparando',
-  on_the_way: 'En camino',
-  delivered: 'Entregado',
+  ready: 'Listo',
   cancelled: 'Cancelado',
 };
 
