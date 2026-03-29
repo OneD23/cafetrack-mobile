@@ -1,9 +1,14 @@
 import React from 'react';
-import { ActivityIndicator, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Text, View } from 'react-native';
 import { StackScreenProps } from '@react-navigation/stack';
 import { RootStackParamList } from '../../navigation/types';
 import { useAppDispatch, useAppSelector } from '../../store/hooks';
 import { loginClient } from '../../store/superAuthSlice';
+import { theme } from '../../theme/theme';
+import Card from '../../components/ui/Card';
+import Input from '../../components/ui/Input';
+import Button from '../../components/ui/Button';
+import Badge from '../../components/ui/Badge';
 
 type Props = StackScreenProps<RootStackParamList, 'AuthLogin'>;
 
@@ -14,25 +19,31 @@ export default function LoginScreen({ navigation }: Props) {
   const [password, setPassword] = React.useState('123456');
 
   return (
-    <View style={{ flex: 1, justifyContent: 'center', padding: 20, backgroundColor: '#fff' }}>
-      <Text style={{ fontSize: 28, fontWeight: '800', marginBottom: 8 }}>Super App</Text>
-      <Text style={{ color: '#666', marginBottom: 20 }}>Inicia sesión para pedir y rastrear tus órdenes.</Text>
+    <View style={{ flex: 1, justifyContent: 'center', padding: theme.spacing.xl, backgroundColor: theme.colors.background }}>
+      <Text style={theme.typography.heading}>OneD Hub</Text>
+      <Text style={[theme.typography.body, { color: theme.colors.textSecondary, marginBottom: theme.spacing.lg }]}>Inicia sesión para pedir y rastrear tus órdenes.</Text>
 
-      <TextInput value={email} onChangeText={setEmail} placeholder="Email" style={{ borderWidth: 1, borderColor: '#ddd', borderRadius: 10, padding: 12, marginBottom: 10 }} />
-      <TextInput value={password} secureTextEntry onChangeText={setPassword} placeholder="Contraseña" style={{ borderWidth: 1, borderColor: '#ddd', borderRadius: 10, padding: 12, marginBottom: 10 }} />
+      <Card>
+        <Input value={email} onChangeText={setEmail} placeholder="Email" />
+        <View style={{ height: theme.spacing.sm }} />
+        <Input value={password} secureTextEntry onChangeText={setPassword} placeholder="Contraseña" />
 
-      {error ? <Text style={{ color: '#b91c1c', marginBottom: 10 }}>{error}</Text> : null}
+        {error ? (
+          <View style={{ marginTop: theme.spacing.sm }}>
+            <Badge label={error} variant="error" />
+          </View>
+        ) : null}
 
-      <TouchableOpacity
-        onPress={() => dispatch(loginClient({ email, password }))}
-        style={{ backgroundColor: '#1f6feb', padding: 14, borderRadius: 10, alignItems: 'center' }}
-      >
-        {isLoading ? <ActivityIndicator color="#fff" /> : <Text style={{ color: '#fff', fontWeight: '700' }}>Entrar</Text>}
-      </TouchableOpacity>
+        <View style={{ marginTop: theme.spacing.lg }}>
+          <Button title={isLoading ? 'Entrando...' : 'Entrar'} onPress={() => dispatch(loginClient({ email, password }))} disabled={isLoading} />
+        </View>
 
-      <TouchableOpacity onPress={() => navigation.navigate('AuthRegister')} style={{ padding: 14, alignItems: 'center' }}>
-        <Text style={{ color: '#1f6feb' }}>Crear cuenta</Text>
-      </TouchableOpacity>
+        <View style={{ marginTop: theme.spacing.sm }}>
+          <Button title="Crear cuenta" onPress={() => navigation.navigate('AuthRegister')} variant="outline" />
+        </View>
+      </Card>
+
+      {isLoading ? <ActivityIndicator style={{ marginTop: theme.spacing.md }} color={theme.colors.primary} /> : null}
     </View>
   );
 }

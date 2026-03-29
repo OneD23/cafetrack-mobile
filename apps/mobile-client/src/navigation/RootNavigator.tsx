@@ -16,6 +16,7 @@ import CheckoutScreen from '../screens/superapp/CheckoutScreen';
 import OrderDetailScreen from '../screens/superapp/OrderDetailScreen';
 import { MainTabsParamList, RootStackParamList } from './types';
 import { useAppSelector } from '../store/hooks';
+import { theme } from '../theme/theme';
 
 const Stack = createStackNavigator<RootStackParamList>();
 const Tab = createBottomTabNavigator<MainTabsParamList>();
@@ -32,7 +33,16 @@ function MainTabs() {
           };
           return <Ionicons name={icons[route.name]} size={size} color={color} />;
         },
-        tabBarActiveTintColor: '#1f6feb',
+        tabBarActiveTintColor: theme.colors.primary,
+        tabBarInactiveTintColor: theme.colors.textSecondary,
+        tabBarStyle: {
+          backgroundColor: theme.colors.card,
+          borderTopColor: theme.colors.border,
+        },
+        headerStyle: {
+          backgroundColor: theme.colors.card,
+        },
+        headerTintColor: theme.colors.textPrimary,
       })}
     >
       <Tab.Screen name="InicioTab" component={HomeScreen} options={{ title: 'Inicio' }} />
@@ -47,14 +57,20 @@ function AuthOrApp() {
 
   if (isLoading) {
     return (
-      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
-        <Text>Restaurando sesión...</Text>
+      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: theme.colors.background }}>
+        <Text style={{ color: theme.colors.textPrimary }}>Restaurando sesión...</Text>
       </View>
     );
   }
 
   return (
-    <Stack.Navigator>
+    <Stack.Navigator
+      screenOptions={{
+        headerStyle: { backgroundColor: theme.colors.card },
+        headerTintColor: theme.colors.textPrimary,
+        cardStyle: { backgroundColor: theme.colors.background },
+      }}
+    >
       {!user ? (
         <>
           <Stack.Screen name="AuthLogin" component={LoginScreen} options={{ title: 'Login' }} />
