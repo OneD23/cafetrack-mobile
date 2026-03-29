@@ -1,12 +1,14 @@
 import { PayloadAction, createSlice } from '@reduxjs/toolkit';
-import { ServiceBooking } from '../types/superApp';
+import { BusinessOwnerConfig, ServiceBooking } from '../types/superApp';
 
 interface SuperServicesState {
   bookings: ServiceBooking[];
+  ownerConfig: BusinessOwnerConfig | null;
 }
 
 const initialState: SuperServicesState = {
   bookings: [],
+  ownerConfig: null,
 };
 
 const superServicesSlice = createSlice({
@@ -25,8 +27,11 @@ const superServicesSlice = createSlice({
         booking.status = action.payload.status;
       }
     },
+    setOwnerConfig: (state, action: PayloadAction<BusinessOwnerConfig>) => {
+      state.ownerConfig = action.payload;
+    },
   },
 });
 
-export const { addServiceBooking, updateServiceBookingStatus } = superServicesSlice.actions;
+export const { addServiceBooking, updateServiceBookingStatus, setOwnerConfig } = superServicesSlice.actions;
 export default superServicesSlice.reducer;

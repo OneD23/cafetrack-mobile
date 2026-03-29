@@ -23,6 +23,7 @@ const statusLabel: Record<ServiceBooking['status'], string> = {
 export default function ServicesScreen() {
   const dispatch = useAppDispatch();
   const bookings = useAppSelector((state) => state.superServices.bookings);
+  const ownerConfig = useAppSelector((state) => state.superServices.ownerConfig);
 
   const [selectedBusinessId, setSelectedBusinessId] = React.useState<string>(salonBusinesses[0]?.id ?? '');
   const [selectedServiceId, setSelectedServiceId] = React.useState<string>(salonBusinesses[0]?.products[0]?.id ?? '');
@@ -74,10 +75,20 @@ export default function ServicesScreen() {
 
   return (
     <ScrollView style={{ flex: 1, backgroundColor: theme.colors.background }} contentContainerStyle={{ padding: theme.spacing.lg }}>
+      <View style={{ width: '100%', maxWidth: 760, alignSelf: 'center' }}>
       <Text style={{ fontSize: 24, fontWeight: '800', color: theme.colors.textPrimary }}>Servicios</Text>
       <Text style={{ color: theme.colors.textSecondary, marginTop: 4 }}>
         Agenda citas y turnos para barberías, peluquerías y salones de belleza.
       </Text>
+
+      {ownerConfig ? (
+        <Card style={{ marginTop: theme.spacing.md }}>
+          <Text style={{ fontWeight: '700', color: theme.colors.textPrimary }}>Negocio configurado</Text>
+          <Text style={{ color: theme.colors.textSecondary, marginTop: 4 }}>
+            {ownerConfig.businessName} ({ownerConfig.ownerName})
+          </Text>
+        </Card>
+      ) : null}
 
       <Card style={{ marginTop: theme.spacing.lg }}>
         <Text style={{ fontWeight: '700', color: theme.colors.textPrimary, marginBottom: theme.spacing.sm }}>
@@ -173,6 +184,7 @@ export default function ServicesScreen() {
           ))
         )}
       </Card>
+      </View>
     </ScrollView>
   );
 }

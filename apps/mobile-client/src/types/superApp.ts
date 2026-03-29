@@ -93,3 +93,11 @@ export interface ServiceBooking {
   status: 'pending' | 'confirmed' | 'in_progress' | 'completed' | 'cancelled';
   createdAt: string;
 }
+
+export interface BusinessOwnerConfig {
+  ownerName: string;
+  businessName: string;
+  phone: string;
+  businessType: BusinessType;
+  updatedAt: string;
+}
