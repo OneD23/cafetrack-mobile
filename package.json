@@ -15,6 +15,7 @@
     "android:mobile-client": "npm --prefix apps/mobile-client run android",
     "ios:mobile-client": "npm --prefix apps/mobile-client run ios",
     "check:mobile-client": "npm --prefix apps/mobile-client run ts:check",
-    "dev:mobile-business": "npm --prefix apps/mobile-business run start"
+    "dev:mobile-business": "npm --prefix apps/mobile-business run start",
+    "dev:mobile-beauty": "npm --prefix apps/mobile-beauty run start"
   }
 }
