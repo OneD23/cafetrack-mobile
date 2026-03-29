@@ -167,6 +167,10 @@ async deductIngredients(recipeId: string, quantity: number, saleId: string) {
     return this.request('/v1/businesses/connected');
   }
 
+  async getBusinessProducts(businessId: string) {
+    return this.request(`/v1/businesses/${businessId}/products`);
+  }
+
   // Products
   async getProducts() {
     return this.request('/products');

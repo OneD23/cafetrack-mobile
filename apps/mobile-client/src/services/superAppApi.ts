@@ -6,21 +6,11 @@ import {
   BusinessItem,
   Order,
   PaymentMethod,
+  ProductItem,
 } from '../types/superApp';
 import { mockAddresses, mockBusinesses, mockCategories, mockOrders, mockPaymentMethods } from './mockData';
 
 const wait = (ms = 250) => new Promise((resolve) => setTimeout(resolve, ms));
-
-const defaultProductsForBusiness = (businessId: string) => [
-  {
-    id: `${businessId}-default-1`,
-    businessId,
-    name: 'Producto OneD Hub',
-    description: 'Producto base para pedidos Fase 1',
-    price: 8.99,
-    available: true,
-  },
-];
 
 export const superAppApi = {
   async login(email: string): Promise<AuthSession> {
@@ -66,11 +56,29 @@ export const superAppApi = {
         rating: Number(business.rating || 4.5),
         etaMinutes: Number(business.etaMinutes || 35),
         distanceKm: Number(business.distanceKm || 2),
-        products: defaultProductsForBusiness(business.id),
+        products: [],
       }));
     } catch (_) {
-      // fallback local para desarrollo cuando backend no está disponible.
       return mockBusinesses;
+    }
+  },
+
+  async getBusinessProducts(businessId: string): Promise<ProductItem[]> {
+    try {
+      const response = await api.getBusinessProducts(businessId);
+      const entries = Array.isArray(response?.data) ? response.data : [];
+      return entries.map((product: any) => ({
+        id: product.id,
+        businessId,
+        name: product.name,
+        description: product.description,
+        price: Number(product.price || 0),
+        imageUrl: product.imageUrl,
+        available: product.available !== false,
+      }));
+    } catch (_) {
+      const businessFallback = mockBusinesses.find((item) => item.id === businessId);
+      return businessFallback?.products || [];
     }
   },
 

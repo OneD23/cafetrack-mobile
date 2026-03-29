@@ -34,6 +34,19 @@ const updateNetworkStatus = async (req, res, next) => {
   }
 };
 
+const getBusinessProducts = async (req, res, next) => {
+  try {
+    const payload = await businessesService.getBusinessProducts({ businessId: req.params.businessId });
+
+    return res.json({
+      success: true,
+      data: payload,
+    });
+  } catch (error) {
+    return next(error);
+  }
+};
+
 const listConnectedBusinesses = async (req, res, next) => {
   try {
     const payload = await businessesService.getConnectedBusinesses();
@@ -51,4 +64,5 @@ module.exports = {
   getNetworkStatus,
   updateNetworkStatus,
   listConnectedBusinesses,
+  getBusinessProducts,
 };

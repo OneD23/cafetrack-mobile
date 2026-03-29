@@ -4,6 +4,8 @@ import { StackScreenProps } from '@react-navigation/stack';
 import { RootStackParamList } from '../../navigation/types';
 import { useAppDispatch, useAppSelector } from '../../store/hooks';
 import { addToCart } from '../../store/superCartSlice';
+import { superAppApi } from '../../services/superAppApi';
+import { ProductItem } from '../../types/superApp';
 
 type Props = StackScreenProps<RootStackParamList, 'BusinessDetail'>;
 
@@ -12,6 +14,11 @@ export default function BusinessDetailScreen({ route, navigation }: Props) {
   const business = useAppSelector((state) =>
     state.superBusiness.businesses.find((entry) => entry.id === route.params.businessId)
   );
+  const [products, setProducts] = React.useState<ProductItem[]>([]);
+
+  React.useEffect(() => {
+    superAppApi.getBusinessProducts(route.params.businessId).then(setProducts).catch(() => setProducts([]));
+  }, [route.params.businessId]);
 
   if (!business) {
     return (
@@ -28,7 +35,8 @@ export default function BusinessDetailScreen({ route, navigation }: Props) {
       <Text style={{ color: '#334155', marginTop: 8 }}>⭐ {business.rating} · {business.etaMinutes} min</Text>
 
       <Text style={{ fontSize: 18, fontWeight: '700', marginTop: 20, marginBottom: 10 }}>Productos / Servicios</Text>
-      {business.products.map((product) => (
+      {products.length === 0 ? <Text style={{ color: '#64748b' }}>Este negocio aún no tiene productos publicados.</Text> : null}
+      {products.map((product) => (
         <View
           key={product.id}
           style={{

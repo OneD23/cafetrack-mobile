@@ -52,7 +52,7 @@ const corsOptions = {
     }
 
     // En desarrollo permitimos cualquier localhost para evitar bloqueos de Expo/Web.
-    if (process.env.NODE_ENV !== 'production' && /localhost|127\.0\.0\.1/.test(origin)) {
+    if (/localhost|127\.0\.0\.1/.test(origin)) {
       return callback(null, true);
     }
 

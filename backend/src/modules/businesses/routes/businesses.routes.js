@@ -15,5 +15,6 @@ router.get('/network-status', businessesController.getNetworkStatus);
 router.get('/:businessId/network-status', businessesController.getNetworkStatus);
 router.patch('/:businessId/network-status', businessesController.updateNetworkStatus);
 router.get('/connected', businessesController.listConnectedBusinesses);
+router.get('/:businessId/products', businessesController.getBusinessProducts);
 
 module.exports = router;
