@@ -1,0 +1,30 @@
+{
+  "expo": {
+    "name": "CafeTrack Business",
+    "slug": "cafetrack-mobile-business",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "../mobile-client/assets/icon.png",
+    "userInterfaceStyle": "light",
+    "splash": {
+      "image": "../mobile-client/assets/splash-icon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#ffffff"
+    },
+    "assetBundlePatterns": [
+      "**/*"
+    ],
+    "ios": {
+      "supportsTablet": true
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "../mobile-client/assets/adaptive-icon.png",
+        "backgroundColor": "#ffffff"
+      }
+    },
+    "web": {
+      "favicon": "../mobile-client/assets/favicon.png"
+    }
+  }
+}
