@@ -20,11 +20,20 @@ import ReportsScreen from '../mobile-client/src/screens/ReportsScreen';
 import BusinessSettingsScreen from './src/screens/BusinessSettingsScreen';
 import CustomersScreen from '../mobile-client/src/screens/CustomersScreen';
 import OrdersIncomingScreen from './src/screens/OrdersIncomingScreen';
+import VerticalPosScreen from './src/screens/pos/VerticalPosScreen';
+import { resolveBusinessVertical } from './src/services/businessProfileResolver';
+import { BusinessVertical } from './src/types/business';
 
 const Tab = createBottomTabNavigator();
 const TAX_SETTINGS_KEY = 'settings:tax_enabled';
 
-function MainTabs() {
+interface MainTabsProps {
+  vertical: BusinessVertical;
+}
+
+function MainTabs({ vertical }: MainTabsProps) {
+  const PosComponent = vertical === 'cafeteria' ? POSScreen : () => <VerticalPosScreen vertical={vertical} />;
+
   return (
     <Tab.Navigator
       screenOptions={({ route }) => ({
@@ -57,7 +66,11 @@ function MainTabs() {
         headerShown: false,
       })}
     >
-      <Tab.Screen name="POS" component={POSScreen} />
+      <Tab.Screen
+        name="POS"
+        component={PosComponent}
+        options={{ title: vertical === 'cafeteria' ? 'POS Cafetería' : `POS ${vertical.replace('_', ' ')}` }}
+      />
       <Tab.Screen name="Inventario" component={InventoryScreen} />
       <Tab.Screen name="Clientes" component={CustomersScreen} />
       <Tab.Screen name="PedidosHub" component={OrdersIncomingScreen} options={{ title: 'Pedidos Hub' }} />
@@ -113,7 +126,9 @@ function AppContent() {
     );
   }
 
-  return authState.user ? <MainTabs /> : <LoginScreen />;
+  const vertical = resolveBusinessVertical(authState.user || null);
+
+  return authState.user ? <MainTabs vertical={vertical} /> : <LoginScreen />;
 }
 
 export default function App() {
