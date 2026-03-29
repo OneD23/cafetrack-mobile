@@ -12,6 +12,7 @@ const mongoose = require('mongoose');
 
 const connectDB = require('./src/config/database');
 const socketEvents = require('./src/socket/events');
+const modularFeatures = require('./src/modules');
 
 // Rutas
 const authRoutes = require('./src/routes/auth');
@@ -51,7 +52,7 @@ const corsOptions = {
     }
 
     // En desarrollo permitimos cualquier localhost para evitar bloqueos de Expo/Web.
-    if (process.env.NODE_ENV !== 'production' && /localhost|127\.0\.0\.1/.test(origin)) {
+    if (/localhost|127\.0\.0\.1/.test(origin)) {
       return callback(null, true);
     }
 
@@ -108,6 +109,14 @@ app.use('/api/sales', saleRoutes);
 app.use('/api/customers', customerRoutes);
 app.use('/api/reports', reportRoutes);
 app.use('/api/notifications', notificationRoutes);
+
+
+// Módulos escalables (base MVP Super App)
+Object.entries(modularFeatures).forEach(([moduleName, moduleDef]) => {
+  if (moduleDef?.router) {
+    app.use(`/api/v1/${moduleName}`, moduleDef.router);
+  }
+});
 
 // Socket.io events
 socketEvents(io);
