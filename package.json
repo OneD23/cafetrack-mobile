@@ -1,0 +1,21 @@
+{
+  "name": "cafetrack-superapp-monorepo",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Monorepo base para Super App local y escalable",
+  "workspaces": [
+    "apps/*",
+    "backend",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev:backend": "npm --prefix backend run dev",
+    "start:backend": "npm --prefix backend run start",
+    "dev:mobile-client": "npm --prefix apps/mobile-client run start",
+    "android:mobile-client": "npm --prefix apps/mobile-client run android",
+    "ios:mobile-client": "npm --prefix apps/mobile-client run ios",
+    "check:mobile-client": "npm --prefix apps/mobile-client run ts:check",
+    "dev:mobile-business": "npm --prefix apps/mobile-business run start",
+    "dev:mobile-beauty": "npm --prefix apps/mobile-beauty run start"
+  }
+}

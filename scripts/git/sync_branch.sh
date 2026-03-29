@@ -23,6 +23,6 @@ echo "➡️  Rebaseando sobre origin/main"
 git rebase origin/main
 
 echo "➡️  Ejecutando chequeo TypeScript"
-npm --prefix cafetrack-mobile run ts:check
+npm --prefix apps/mobile-client run ts:check
 
 echo "✅ Listo. Puedes subir con: git push --force-with-lease"
