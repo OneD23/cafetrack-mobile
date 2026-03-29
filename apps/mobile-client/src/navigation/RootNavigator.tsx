@@ -14,6 +14,7 @@ import BusinessDetailScreen from '../screens/superapp/BusinessDetailScreen';
 import CartScreen from '../screens/superapp/CartScreen';
 import CheckoutScreen from '../screens/superapp/CheckoutScreen';
 import OrderDetailScreen from '../screens/superapp/OrderDetailScreen';
+import BusinessOwnerFormScreen from '../screens/superapp/BusinessOwnerFormScreen';
 import { MainTabsParamList, RootStackParamList } from './types';
 import { useAppSelector } from '../store/hooks';
 import { theme } from '../theme/theme';
@@ -84,6 +85,7 @@ function AuthOrApp() {
           <Stack.Screen name="Cart" component={CartScreen} options={{ title: 'Carrito' }} />
           <Stack.Screen name="Checkout" component={CheckoutScreen} options={{ title: 'Checkout' }} />
           <Stack.Screen name="OrderDetail" component={OrderDetailScreen} options={{ title: 'Detalle del pedido' }} />
+          <Stack.Screen name="BusinessOwnerForm" component={BusinessOwnerFormScreen} options={{ title: 'Configurar negocio' }} />
         </>
       )}
     </Stack.Navigator>

@@ -27,8 +27,17 @@ export default function BusinessDetailScreen({ route, navigation }: Props) {
       <Text style={{ fontSize: 26, fontWeight: '800', color: theme.colors.textPrimary }}>{business.name}</Text>
       <Text style={{ color: theme.colors.textSecondary, marginTop: 8 }}>{business.description}</Text>
 
+      {business.businessType === 'barberia_salon' ? (
+        <View style={{ marginTop: theme.spacing.md, padding: theme.spacing.md, backgroundColor: theme.colors.card, borderRadius: theme.borderRadius.md }}>
+          <Text style={{ fontWeight: '700', color: theme.colors.textPrimary }}>Turnos y citas</Text>
+          <Text style={{ color: theme.colors.textSecondary, marginTop: 4 }}>
+            Este negocio maneja citas por bloques de 30 minutos. Elige el servicio y reserva tu turno.
+          </Text>
+        </View>
+      ) : null}
+
       <Text style={{ fontSize: 20, fontWeight: '700', color: theme.colors.textPrimary, marginTop: theme.spacing.xl, marginBottom: theme.spacing.md }}>
-        Productos
+        Productos / Servicios
       </Text>
 
       {business.products.map((product) => (

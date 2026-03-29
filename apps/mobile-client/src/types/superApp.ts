@@ -13,6 +13,8 @@ export interface AuthSession {
   user: UserProfile;
 }
 
+export type BusinessType = 'cafeteria' | 'ferreteria' | 'supermercado' | 'colmado' | 'barberia_salon';
+
 export interface BusinessCategory {
   id: string;
   name: string;
@@ -33,6 +35,7 @@ export interface BusinessItem {
   id: string;
   name: string;
   categoryId: string;
+  businessType: BusinessType;
   description: string;
   rating: number;
   etaMinutes: number;
@@ -50,7 +53,6 @@ export interface OrderItem {
   quantity: number;
   unitPrice: number;
 }
-
 
 export interface Address {
   id: string;
