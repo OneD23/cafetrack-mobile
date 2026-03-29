@@ -37,6 +37,7 @@ export interface BusinessItem {
   rating: number;
   etaMinutes: number;
   distanceKm: number;
+  bannerUrl?: string;
   products: ProductItem[];
 }
 

@@ -1,23 +1,28 @@
 import React from 'react';
 import { FlatList, Text, View } from 'react-native';
-import { StackNavigationProp } from '@react-navigation/stack';
 import { useNavigation } from '@react-navigation/native';
-import BusinessCard from '../../components/superapp/BusinessCard';
+import { StackNavigationProp } from '@react-navigation/stack';
+import BusinessCard from '../../components/BusinessCard';
+import { mockBusinessesData } from '../../data/businesses';
 import { RootStackParamList } from '../../navigation/types';
-import { useAppSelector } from '../../store/hooks';
+import { theme } from '../../theme/theme';
 
 export default function BusinessListScreen() {
   const navigation = useNavigation<StackNavigationProp<RootStackParamList>>();
-  const businesses = useAppSelector((state) => state.superBusiness.businesses);
 
   return (
-    <View style={{ flex: 1, backgroundColor: '#fff', padding: 16 }}>
-      <Text style={{ fontSize: 22, fontWeight: '800', marginBottom: 12 }}>Negocios activos en OneD Hub</Text>
+    <View style={{ flex: 1, backgroundColor: theme.colors.background, padding: theme.spacing.lg }}>
+      <Text style={{ fontSize: 24, fontWeight: '800', color: theme.colors.textPrimary, marginBottom: theme.spacing.md }}>
+        Negocios cercanos
+      </Text>
+
       <FlatList
-        data={businesses}
+        data={mockBusinessesData}
         keyExtractor={(item) => item.id}
-        ListEmptyComponent={<Text style={{ color: "#64748b" }}>No hay negocios conectados actualmente.</Text>}
-        renderItem={({ item }) => <BusinessCard business={item} onPress={() => navigation.navigate('BusinessDetail', { businessId: item.id })} />}
+        renderItem={({ item }) => (
+          <BusinessCard business={item} onPress={() => navigation.navigate('BusinessDetail', { business: item })} />
+        )}
+        showsVerticalScrollIndicator={false}
       />
     </View>
   );

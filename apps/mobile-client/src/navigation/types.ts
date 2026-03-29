@@ -1,3 +1,5 @@
+import { BusinessItem } from '../types/superApp';
+
 export type MainTabsParamList = {
   InicioTab: undefined;
   PedidosTab: undefined;
@@ -9,7 +11,7 @@ export type RootStackParamList = {
   AuthRegister: undefined;
   MainTabs: undefined;
   BusinessList: undefined;
-  BusinessDetail: { businessId: string };
+  BusinessDetail: { business: BusinessItem };
   Cart: undefined;
   Checkout: undefined;
   OrderDetail: { orderId: string };

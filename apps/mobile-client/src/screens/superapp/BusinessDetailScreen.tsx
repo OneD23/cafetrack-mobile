@@ -1,69 +1,43 @@
 import React from 'react';
-import { ScrollView, Text, TouchableOpacity, View } from 'react-native';
+import { Image, ScrollView, Text, View } from 'react-native';
 import { StackScreenProps } from '@react-navigation/stack';
+import ProductItem from '../../components/ProductItem';
+import Button from '../../components/ui/Button';
 import { RootStackParamList } from '../../navigation/types';
-import { useAppDispatch, useAppSelector } from '../../store/hooks';
+import { useAppDispatch } from '../../store/hooks';
 import { addToCart } from '../../store/superCartSlice';
-import { superAppApi } from '../../services/superAppApi';
-import { ProductItem } from '../../types/superApp';
+import { theme } from '../../theme/theme';
 
 type Props = StackScreenProps<RootStackParamList, 'BusinessDetail'>;
 
 export default function BusinessDetailScreen({ route, navigation }: Props) {
   const dispatch = useAppDispatch();
-  const business = useAppSelector((state) =>
-    state.superBusiness.businesses.find((entry) => entry.id === route.params.businessId)
-  );
-  const [products, setProducts] = React.useState<ProductItem[]>([]);
-
-  React.useEffect(() => {
-    superAppApi.getBusinessProducts(route.params.businessId).then(setProducts).catch(() => setProducts([]));
-  }, [route.params.businessId]);
-
-  if (!business) {
-    return (
-      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
-        <Text>No encontramos este negocio.</Text>
-      </View>
-    );
-  }
+  const { business } = route.params;
 
   return (
-    <ScrollView style={{ flex: 1, backgroundColor: '#fff' }} contentContainerStyle={{ padding: 16 }}>
-      <Text style={{ fontSize: 24, fontWeight: '800' }}>{business.name}</Text>
-      <Text style={{ color: '#475569', marginTop: 8 }}>{business.description}</Text>
-      <Text style={{ color: '#334155', marginTop: 8 }}>⭐ {business.rating} · {business.etaMinutes} min</Text>
+    <ScrollView style={{ flex: 1, backgroundColor: theme.colors.background }} contentContainerStyle={{ padding: theme.spacing.lg }}>
+      {business.bannerUrl ? (
+        <Image
+          source={{ uri: business.bannerUrl }}
+          style={{ width: '100%', height: 180, borderRadius: theme.borderRadius.lg, marginBottom: theme.spacing.lg }}
+          resizeMode="cover"
+        />
+      ) : null}
 
-      <Text style={{ fontSize: 18, fontWeight: '700', marginTop: 20, marginBottom: 10 }}>Productos / Servicios</Text>
-      {products.length === 0 ? <Text style={{ color: '#64748b' }}>Este negocio aún no tiene productos publicados.</Text> : null}
-      {products.map((product) => (
-        <View
-          key={product.id}
-          style={{
-            borderWidth: 1,
-            borderColor: '#e2e8f0',
-            borderRadius: 10,
-            padding: 12,
-            marginBottom: 10,
-            flexDirection: 'row',
-            justifyContent: 'space-between',
-            alignItems: 'center',
-          }}
-        >
-          <View style={{ flex: 1, marginRight: 10 }}>
-            <Text style={{ fontWeight: '700' }}>{product.name}</Text>
-            <Text style={{ color: '#475569' }}>${product.price.toFixed(2)}</Text>
-          </View>
+      <Text style={{ fontSize: 26, fontWeight: '800', color: theme.colors.textPrimary }}>{business.name}</Text>
+      <Text style={{ color: theme.colors.textSecondary, marginTop: 8 }}>{business.description}</Text>
 
-          <TouchableOpacity onPress={() => dispatch(addToCart(product))} style={{ backgroundColor: '#1f6feb', paddingHorizontal: 10, paddingVertical: 8, borderRadius: 8 }}>
-            <Text style={{ color: '#fff', fontWeight: '700' }}>Agregar</Text>
-          </TouchableOpacity>
-        </View>
+      <Text style={{ fontSize: 20, fontWeight: '700', color: theme.colors.textPrimary, marginTop: theme.spacing.xl, marginBottom: theme.spacing.md }}>
+        Productos
+      </Text>
+
+      {business.products.map((product) => (
+        <ProductItem key={product.id} product={product} onAdd={() => dispatch(addToCart(product))} />
       ))}
 
-      <TouchableOpacity onPress={() => navigation.navigate('Cart')} style={{ marginTop: 16, backgroundColor: '#16a34a', padding: 14, borderRadius: 10, alignItems: 'center' }}>
-        <Text style={{ color: '#fff', fontWeight: '700' }}>Ver carrito</Text>
-      </TouchableOpacity>
+      <View style={{ marginTop: theme.spacing.md }}>
+        <Button title="Ver carrito" onPress={() => navigation.navigate('Cart')} />
+      </View>
     </ScrollView>
   );
 }

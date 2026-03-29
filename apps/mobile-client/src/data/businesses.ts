@@ -30,4 +30,19 @@ export const mockBusinessesData: BusinessItem[] = [
       { id: 'prod-jugo', businessId: 'biz-green', name: 'Jugo verde', price: 3.8, available: true },
     ],
   },
+  {
+    id: 'biz-pizza',
+    name: 'Pizza Napo Express',
+    categoryId: 'cat-food',
+    description: 'Pizzas artesanales y bebidas frías para compartir.',
+    rating: 4.7,
+    etaMinutes: 35,
+    distanceKm: 3.4,
+    bannerUrl: 'https://images.unsplash.com/photo-1513104890138-7c749659a591?w=1200',
+    products: [
+      { id: 'prod-margherita', businessId: 'biz-pizza', name: 'Pizza Margherita', price: 12.9, available: true },
+      { id: 'prod-pepperoni', businessId: 'biz-pizza', name: 'Pizza Pepperoni', price: 13.9, available: true },
+      { id: 'prod-garlic-bread', businessId: 'biz-pizza', name: 'Garlic Bread', price: 4.2, available: true },
+    ],
+  },
 ];
