@@ -9,6 +9,7 @@ import superAuthReducer from './superAuthSlice';
 import superBusinessReducer from './superBusinessSlice';
 import superCartReducer from './superCartSlice';
 import superOrdersReducer from './superOrdersSlice';
+import superServicesReducer from './superServicesSlice';
 
 export const store = configureStore({
   reducer: {
@@ -21,6 +22,7 @@ export const store = configureStore({
     superBusiness: superBusinessReducer,
     superCart: superCartReducer,
     superOrders: superOrdersReducer,
+    superServices: superServicesReducer,
   },
   middleware: (getDefaultMiddleware: any) =>
     getDefaultMiddleware({

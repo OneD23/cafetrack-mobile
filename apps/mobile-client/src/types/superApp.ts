@@ -81,3 +81,15 @@ export interface Order {
   address: Address;
   paymentMethod: PaymentMethod;
 }
+
+export interface ServiceBooking {
+  id: string;
+  businessId: string;
+  businessName: string;
+  serviceId: string;
+  serviceName: string;
+  customerName: string;
+  scheduledAt: string;
+  status: 'pending' | 'confirmed' | 'in_progress' | 'completed' | 'cancelled';
+  createdAt: string;
+}
