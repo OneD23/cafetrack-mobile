@@ -1,7 +1,7 @@
 {
   "name": "cafetrack-mobile",
   "version": "2.0.0",
-  "main": "node_modules/expo/AppEntry.js",
+  "main": "index.ts",
   "scripts": {
     "prestart": "npm run check:screens",
     "start": "expo start",
