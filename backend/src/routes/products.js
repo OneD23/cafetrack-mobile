@@ -35,7 +35,7 @@ router.post('/', protect, async (req, res) => {
   session.startTransaction();
 
   try {
-    const { name, price, category, icon, image, recipe } = req.body;
+    const { name, price, category, icon, image, recipe, businessId } = req.body;
 
     // Crear producto
     const product = await Product.create([{
@@ -44,7 +44,8 @@ router.post('/', protect, async (req, res) => {
       category,
       icon: icon || '☕',
       image,
-      hasRecipe: true
+      hasRecipe: true,
+      businessId: businessId || null
     }], { session });
 
     // Crear receta
