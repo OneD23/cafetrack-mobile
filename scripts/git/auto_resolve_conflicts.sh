@@ -16,11 +16,11 @@ if [[ "$STRATEGY" != "ours" && "$STRATEGY" != "theirs" ]]; then
 fi
 
 DEFAULT_FILES=(
-  "cafetrack-mobile/src/components/RecipeModal.tsx"
-  "cafetrack-mobile/src/screens/InventoryScreen.tsx"
-  "cafetrack-mobile/src/screens/LoginScreen.tsx"
-  "cafetrack-mobile/src/screens/POSScreen.tsx"
-  "cafetrack-mobile/src/store/index.ts"
+  "apps/mobile-client/src/components/RecipeModal.tsx"
+  "apps/mobile-client/src/screens/InventoryScreen.tsx"
+  "apps/mobile-client/src/screens/LoginScreen.tsx"
+  "apps/mobile-client/src/screens/POSScreen.tsx"
+  "apps/mobile-client/src/store/index.ts"
 )
 
 if [[ $# -gt 0 ]]; then
@@ -56,4 +56,4 @@ git diff --name-only --diff-filter=U || true
 echo
 echo "Siguiente paso:"
 echo "  - Si ya no hay conflictos: git rebase --continue  (o git commit si estabas en merge)"
-echo "  - Luego: npm --prefix cafetrack-mobile run check:screens && npm --prefix cafetrack-mobile run ts:check"
+echo "  - Luego: npm --prefix apps/mobile-client run check:screens && npm --prefix apps/mobile-client run ts:check"
