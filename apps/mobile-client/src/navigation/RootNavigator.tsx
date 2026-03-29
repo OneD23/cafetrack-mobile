@@ -9,6 +9,7 @@ import RegisterScreen from '../screens/superapp/RegisterScreen';
 import HomeScreen from '../screens/superapp/HomeScreen';
 import OrdersScreen from '../screens/superapp/OrdersScreen';
 import ProfileScreen from '../screens/superapp/ProfileScreen';
+import ServicesScreen from '../screens/superapp/ServicesScreen';
 import BusinessListScreen from '../screens/superapp/BusinessListScreen';
 import BusinessDetailScreen from '../screens/superapp/BusinessDetailScreen';
 import CartScreen from '../screens/superapp/CartScreen';
@@ -31,6 +32,7 @@ function MainTabs() {
             InicioTab: 'home-outline',
             PedidosTab: 'receipt-outline',
             PerfilTab: 'person-outline',
+            ServiciosTab: 'cut-outline',
           };
           return <Ionicons name={icons[route.name]} size={size} color={color} />;
         },
@@ -49,6 +51,7 @@ function MainTabs() {
       <Tab.Screen name="InicioTab" component={HomeScreen} options={{ title: 'Inicio' }} />
       <Tab.Screen name="PedidosTab" component={OrdersScreen} options={{ title: 'Pedidos' }} />
       <Tab.Screen name="PerfilTab" component={ProfileScreen} options={{ title: 'Perfil' }} />
+      <Tab.Screen name="ServiciosTab" component={ServicesScreen} options={{ title: 'Servicios' }} />
     </Tab.Navigator>
   );
 }

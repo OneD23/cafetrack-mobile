@@ -4,6 +4,7 @@ export type MainTabsParamList = {
   InicioTab: undefined;
   PedidosTab: undefined;
   PerfilTab: undefined;
+  ServiciosTab: undefined;
 };
 
 export type RootStackParamList = {
