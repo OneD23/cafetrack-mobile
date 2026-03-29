@@ -48,7 +48,7 @@ Qué hace:
 - cambia a la rama indicada,
 - trae cambios de remoto,
 - ejecuta `rebase origin/main`,
-- corre `npm --prefix cafetrack-mobile run ts:check`.
+- corre `npm --prefix apps/mobile-client run ts:check`.
 
 Si todo pasa, sube con:
 
@@ -79,10 +79,10 @@ git rebase --abort
 ## Zonas calientes de este repo
 
 Rebasea justo antes de push si tocas:
-- `cafetrack-mobile/src/screens/LoginScreen.tsx`
-- `cafetrack-mobile/src/screens/POSScreen.tsx`
-- `cafetrack-mobile/src/screens/SettingsScreen.tsx`
-- `cafetrack-mobile/src/components/RecipeModal.tsx`
+- `apps/mobile-client/src/screens/LoginScreen.tsx`
+- `apps/mobile-client/src/screens/POSScreen.tsx`
+- `apps/mobile-client/src/screens/SettingsScreen.tsx`
+- `apps/mobile-client/src/components/RecipeModal.tsx`
 
 ---
 
@@ -90,7 +90,7 @@ Rebasea justo antes de push si tocas:
 
 - [ ] `git fetch origin`
 - [ ] `git rebase origin/main`
-- [ ] `npm --prefix cafetrack-mobile run ts:check`
+- [ ] `npm --prefix apps/mobile-client run ts:check`
 - [ ] `git status` limpio (sin `node_modules` cambiados)
 - [ ] `git push --force-with-lease`
 
@@ -169,6 +169,6 @@ git fetch origin
 git checkout <tu-rama>
 git rebase origin/main
 # resolver archivos
-npm --prefix cafetrack-mobile run ts:check
+npm --prefix apps/mobile-client run ts:check
 git push --force-with-lease
 ```

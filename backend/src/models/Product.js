@@ -34,6 +34,11 @@ const productSchema = new mongoose.Schema({
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Recipe'
   },
+  businessId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Business',
+    default: null
+  },
   syncId: {
     type: String,
     unique: true,
@@ -57,6 +62,7 @@ const productSchema = new mongoose.Schema({
 
 // Índices
 productSchema.index({ category: 1, isActive: 1 });
+productSchema.index({ businessId: 1, isActive: 1 });
 productSchema.index({ name: 'text' });
 
 module.exports = mongoose.model('Product', productSchema);
