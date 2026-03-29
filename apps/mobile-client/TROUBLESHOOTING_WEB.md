@@ -12,7 +12,7 @@ normalmente **no es CORS del backend**. Significa que Metro devolvió JSON con u
 1. **Detén Expo** y vuelve a iniciar con caché limpia:
 
 ```bash
-cd cafetrack-mobile
+cd apps/mobile-client
 npx expo start --web -c
 ```
 
