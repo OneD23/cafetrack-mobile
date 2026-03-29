@@ -17,7 +17,7 @@ Construir una plataforma modular que permita operar múltiples verticales (pedid
 ### Apps
 - `apps/mobile-client`: experiencia cliente final (pedidos, tracking, wallet).
 - `apps/mobile-driver`: repartidor/conductor (aceptación de viajes, estado de entrega).
-- `apps/mobile-business`: panel operativo de negocio (catálogo, pedidos, disponibilidad).
+- `apps/mobile-business`: panel operativo de negocio (catálogo, pedidos, disponibilidad). Actualmente preserva el flujo POS/cafetería existente para no romper operación.
 - `apps/web-admin`: panel administrativo global (supervisión, soporte, métricas).
 
 ### Backend

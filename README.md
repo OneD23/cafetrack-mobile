@@ -26,7 +26,8 @@ scripts/
 
 ## Estado actual
 
-- Se movió la app móvil existente a `apps/mobile-client`.
+- La app cliente final está en `apps/mobile-client` (Super App consumidor).
+- La app operativa de negocio/POS se conservó en `apps/mobile-business`.
 - `backend` se mantiene operativo y se preparó una estructura modular en `backend/src/modules`.
 - Se creó `packages/*` para componentes compartidos TypeScript.
 - Se agregó documentación inicial de arquitectura, roadmap y módulos.
@@ -38,6 +39,7 @@ Desde la raíz del repo:
 ```bash
 npm run dev:backend
 npm run dev:mobile-client
+npm run dev:mobile-business
 npm run check:mobile-client
 ```
 
