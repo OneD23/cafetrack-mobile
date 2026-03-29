@@ -50,10 +50,14 @@ export default function HomeScreen() {
         </TouchableOpacity>
       </View>
 
-      <Text style={{ fontSize: 18, fontWeight: '700', marginBottom: 10 }}>Negocios cercanos</Text>
-      {filtered.map((business) => (
-        <BusinessCard key={business.id} business={business} onPress={() => navigation.navigate('BusinessDetail', { businessId: business.id })} />
-      ))}
+      <Text style={{ fontSize: 18, fontWeight: '700', marginBottom: 10 }}>Negocios conectados en OneD Hub</Text>
+      {filtered.length === 0 ? (
+        <Text style={{ color: '#64748b' }}>No hay negocios visibles en OneD Hub por el momento.</Text>
+      ) : (
+        filtered.map((business) => (
+          <BusinessCard key={business.id} business={business} onPress={() => navigation.navigate('BusinessDetail', { businessId: business.id })} />
+        ))
+      )}
     </ScrollView>
   );
 }

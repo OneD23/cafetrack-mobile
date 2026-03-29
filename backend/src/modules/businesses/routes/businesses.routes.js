@@ -1,8 +1,8 @@
 const express = require('express');
+const businessesController = require('../controllers/businesses.controller');
 
 const router = express.Router();
 
-// TODO: agregar endpoints de este módulo.
 router.get('/health', (req, res) => {
   res.json({
     success: true,
@@ -10,5 +10,10 @@ router.get('/health', (req, res) => {
     status: 'ready',
   });
 });
+
+router.get('/network-status', businessesController.getNetworkStatus);
+router.get('/:businessId/network-status', businessesController.getNetworkStatus);
+router.patch('/:businessId/network-status', businessesController.updateNetworkStatus);
+router.get('/connected', businessesController.listConnectedBusinesses);
 
 module.exports = router;

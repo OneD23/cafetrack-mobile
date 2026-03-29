@@ -16,6 +16,7 @@
 - alta/edición de negocio
 - horarios y estado de operación
 - datos comerciales básicos
+- visibilidad en red OneD Hub (`isConnectedToNetwork`)
 
 ### products
 - catálogo de productos
@@ -70,3 +71,8 @@ src/modules/<module>/
 ```
 
 Cada módulo debe exponer `router` y su definición de dominio para registro central.
+
+
+## Regla de visibilidad para app cliente
+
+La app del consumidor debe listar únicamente negocios con `isConnectedToNetwork = true` e `isActive = true`.

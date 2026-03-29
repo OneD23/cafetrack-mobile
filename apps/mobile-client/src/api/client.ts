@@ -162,6 +162,11 @@ async deductIngredients(recipeId: string, quantity: number, saleId: string) {
   });
 }
 
+
+  async getConnectedBusinesses() {
+    return this.request('/v1/businesses/connected');
+  }
+
   // Products
   async getProducts() {
     return this.request('/products');

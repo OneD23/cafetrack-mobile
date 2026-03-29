@@ -17,7 +17,7 @@ import LoginScreen from '../mobile-client/src/screens/LoginScreen';
 import POSScreen from '../mobile-client/src/screens/POSScreen';
 import InventoryScreen from '../mobile-client/src/screens/InventoryScreen';
 import ReportsScreen from '../mobile-client/src/screens/ReportsScreen';
-import SettingsScreen from '../mobile-client/src/screens/SettingsScreen';
+import BusinessSettingsScreen from './src/screens/BusinessSettingsScreen';
 import CustomersScreen from '../mobile-client/src/screens/CustomersScreen';
 import NotificationsScreen from '../mobile-client/src/screens/NotificationsScreen';
 
@@ -62,7 +62,7 @@ function MainTabs() {
       <Tab.Screen name="Clientes" component={CustomersScreen} />
       <Tab.Screen name="Notificaciones" component={NotificationsScreen} />
       <Tab.Screen name="Contabilidad" component={ReportsScreen} />
-      <Tab.Screen name="Ajustes" component={SettingsScreen} />
+      <Tab.Screen name="Ajustes" component={BusinessSettingsScreen} />
     </Tab.Navigator>
   );
 }
