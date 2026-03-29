@@ -1,2 +1,4 @@
-export { store } from './src/store';
-export type { RootState, AppDispatch } from './src/store';
+import { registerRootComponent } from 'expo';
+import App from './App';
+
+registerRootComponent(App);
