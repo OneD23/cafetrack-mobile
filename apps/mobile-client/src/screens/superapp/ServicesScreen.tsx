@@ -3,13 +3,12 @@ import { Alert, Image, ScrollView, Text, TouchableOpacity, View } from 'react-na
 import Card from '../../components/ui/Card';
 import Button from '../../components/ui/Button';
 import Input from '../../components/ui/Input';
-import { mockBusinessesData } from '../../data/businesses';
+import { superAppApi } from '../../services/superAppApi';
 import { theme } from '../../theme/theme';
 import { useAppDispatch, useAppSelector } from '../../store/hooks';
 import { addServiceBooking, updateServiceBookingStatus } from '../../store/superServicesSlice';
-import { ServiceBooking } from '../../types/superApp';
+import { BusinessItem, ProductItem, ServiceBooking } from '../../types/superApp';
 
-const salonBusinesses = mockBusinessesData.filter((business) => business.businessType === 'barberia_salon');
 const statusFlow: ServiceBooking['status'][] = ['pending', 'confirmed', 'in_progress', 'completed'];
 const weekDays = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'];
 
@@ -119,23 +118,64 @@ export default function ServicesScreen() {
   const bookings = useAppSelector((state) => state.superServices.bookings);
   const ownerConfig = useAppSelector((state) => state.superServices.ownerConfig);
 
-  const [selectedBusinessId, setSelectedBusinessId] = React.useState<string>(salonBusinesses[0]?.id ?? '');
-  const [selectedServiceId, setSelectedServiceId] = React.useState<string>(salonBusinesses[0]?.products[0]?.id ?? '');
+  const [salonBusinesses, setSalonBusinesses] = React.useState<BusinessItem[]>([]);
+  const [businessProductsById, setBusinessProductsById] = React.useState<Record<string, ProductItem[]>>({});
+  const [selectedBusinessId, setSelectedBusinessId] = React.useState<string>('');
+  const [selectedServiceId, setSelectedServiceId] = React.useState<string>('');
   const [customerName, setCustomerName] = React.useState('');
   const [selectedDateKey, setSelectedDateKey] = React.useState<string>('');
   const [selectedTime, setSelectedTime] = React.useState<string>('');
   const [selectedEmployeeId, setSelectedEmployeeId] = React.useState<string>(autoAssignEmployee.id);
 
   const selectedBusiness = salonBusinesses.find((business) => business.id === selectedBusinessId) ?? salonBusinesses[0];
+  const selectedBusinessProducts = businessProductsById[selectedBusiness?.id ?? ''] ?? selectedBusiness?.products ?? [];
 
   React.useEffect(() => {
-    const nextService = selectedBusiness?.products[0]?.id ?? '';
-    if (!selectedBusiness?.products.find((product) => product.id === selectedServiceId)) {
+    let isMounted = true;
+    const loadBusinesses = async () => {
+      const businesses = await superAppApi.getBusinesses();
+      if (!isMounted) return;
+      const salons = businesses.filter((business) => business.businessType === 'barberia_salon');
+      setSalonBusinesses(salons);
+      if (salons[0]) {
+        setSelectedBusinessId((prev) => prev || salons[0].id);
+      }
+    };
+
+    loadBusinesses();
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  React.useEffect(() => {
+    let isMounted = true;
+    const loadProducts = async () => {
+      if (!selectedBusiness?.id) {
+        return;
+      }
+
+      const products = await superAppApi.getBusinessProducts(selectedBusiness.id);
+      if (!isMounted) return;
+      setBusinessProductsById((prev) => ({ ...prev, [selectedBusiness.id]: products }));
+    };
+
+    loadProducts();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [selectedBusiness?.id]);
+
+  React.useEffect(() => {
+    const nextService = selectedBusinessProducts[0]?.id ?? '';
+    if (!selectedBusinessProducts.find((product) => product.id === selectedServiceId)) {
       setSelectedServiceId(nextService);
     }
-  }, [selectedBusiness, selectedServiceId]);
+  }, [selectedBusinessProducts, selectedServiceId]);
 
-  const selectedService = selectedBusiness?.products.find((product) => product.id === selectedServiceId);
+  const selectedService = selectedBusinessProducts.find((product) => product.id === selectedServiceId);
   const staffOptions = staffByBusiness[selectedBusiness?.id ?? ''] ?? [autoAssignEmployee];
   const selectedEmployee = staffOptions.find((staff) => staff.id === selectedEmployeeId) ?? autoAssignEmployee;
 
@@ -264,7 +304,7 @@ export default function ServicesScreen() {
         </Text>
 
         <View style={{ marginBottom: theme.spacing.sm }}>
-          {selectedBusiness?.products.map((product) => {
+          {selectedBusinessProducts.map((product) => {
             const selected = product.id === selectedServiceId;
             return (
               <TouchableOpacity

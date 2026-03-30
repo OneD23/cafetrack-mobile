@@ -171,6 +171,32 @@ async deductIngredients(recipeId: string, quantity: number, saleId: string) {
     return this.request(`/v1/businesses/${businessId}/products`);
   }
 
+  async getPosts(params?: { category?: string; businessId?: string; includeInactive?: boolean }) {
+    const search = new URLSearchParams();
+    if (params?.category) search.set('category', params.category);
+    if (params?.businessId) search.set('businessId', params.businessId);
+    if (params?.includeInactive !== undefined) search.set('includeInactive', String(params.includeInactive));
+    const suffix = search.toString() ? `?${search.toString()}` : '';
+    return this.request(`/v1/posts${suffix}`);
+  }
+
+  async getPostsByCategory(category: string) {
+    return this.request(`/v1/posts/category/${encodeURIComponent(category)}`);
+  }
+
+  async createPost(payload: {
+    businessId: string;
+    title: string;
+    content: string;
+    imageUrl?: string;
+    tags?: string[];
+  }) {
+    return this.request('/v1/posts', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
+  }
+
   // Products
   async getProducts() {
     return this.request('/products');

@@ -8,4 +8,5 @@ module.exports = {
   marketplace: require('./marketplace'),
   services: require('./services'),
   payments: require('./payments'),
+  posts: require('./posts'),
 };
