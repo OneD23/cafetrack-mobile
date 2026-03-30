@@ -40,6 +40,7 @@ router.post('/', protect, async (req, res) => {
       syncId,
       operationId
     } = req.body;
+    const businessId = req.body.businessId || req.auth?.businessId || req.user?.businessId || null;
 
     if (!Array.isArray(items) || items.length === 0) {
       throw new Error('La venta debe incluir al menos un item');
@@ -101,7 +102,8 @@ router.post('/', protect, async (req, res) => {
         throw new Error('Item de venta inválido');
       }
 
-      const product = await Product.findById(item.productId).session(session);
+      const productQuery = businessId ? { _id: item.productId, businessId } : { _id: item.productId };
+      const product = await Product.findOne(productQuery).session(session);
       if (!product) {
         throw new Error('Producto no encontrado en la venta');
       }
@@ -128,7 +130,8 @@ router.post('/', protect, async (req, res) => {
     const saleItems = [];
 
     for (const item of items) {
-      const product = await Product.findById(item.productId).session(session);
+      const productQuery = businessId ? { _id: item.productId, businessId } : { _id: item.productId };
+      const product = await Product.findOne(productQuery).session(session);
       const recipe = product?.recipeId ? await Recipe.findById(product.recipeId).session(session) : null;
       
       // Calcular costo
@@ -212,10 +215,13 @@ router.post('/', protect, async (req, res) => {
       paymentMethod,
       customer: customerSnapshot,
       customerId: resolvedCustomerId,
+      businessId,
+      cashierUserId: req.user._id,
       cashier: req.user._id,
       syncId,
       deviceId,
-      offlineCreated: !!deviceId
+      offlineCreated: !!deviceId,
+      source: req.body.source || 'local_pos',
     }], { session });
 
     if (resolvedCustomerId) {
@@ -276,6 +282,8 @@ router.get('/', protect, async (req, res) => {
     const { startDate, endDate, page = 1, limit = 20 } = req.query;
     
     const query = {};
+    const businessId = req.query.businessId || req.auth?.businessId || req.user?.businessId || null;
+    if (businessId) query.businessId = new mongoose.Types.ObjectId(String(businessId));
     
     if (startDate && endDate) {
       query.createdAt = {

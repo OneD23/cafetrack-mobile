@@ -27,12 +27,18 @@ exports.protect = async (req, res, next) => {
         });
       }
 
-      if (!req.user.isActive) {
+      if (!req.user.isActive || req.user.status === 'inactive' || req.user.status === 'suspended') {
         return res.status(401).json({
           success: false,
           message: 'Usuario desactivado'
         });
       }
+
+      req.auth = {
+        userId: decoded.id,
+        businessId: decoded.businessId || req.user.businessId || null,
+        role: decoded.role || req.user.role,
+      };
 
       next();
     } catch (error) {

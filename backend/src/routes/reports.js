@@ -19,6 +19,12 @@ const buildDateRange = (req) => {
   };
 };
 
+const buildBusinessMatch = (req) => {
+  const businessId = req.query.businessId || req.auth?.businessId || req.user?.businessId || null;
+  if (!businessId) return {};
+  return { businessId };
+};
+
 const toCsv = (rows) => {
   if (!rows.length) return '';
   const headers = Object.keys(rows[0]);
@@ -32,9 +38,9 @@ const toCsv = (rows) => {
 // KPIs principales
 router.get('/kpis', protect, async (req, res) => {
   try {
-    const match = buildDateRange(req);
+    const match = { ...buildDateRange(req), ...buildBusinessMatch(req) };
     const sales = await Sale.find(match);
-    const ingredients = await Ingredient.find({ isActive: true });
+    const ingredients = await Ingredient.find({ isActive: true, ...buildBusinessMatch(req) });
     const expenseMatch = match.createdAt ? { date: match.createdAt, isActive: true } : { isActive: true };
     const expenses = await Expense.find(expenseMatch);
 
@@ -99,6 +105,40 @@ router.get('/kpis', protect, async (req, res) => {
         avgMargin,
         lowStockPercent: ingredients.length ? (lowStockCount / ingredients.length) * 100 : 0,
         inventoryValue,
+      },
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+// Resumen operativo para OneHub Business Core
+router.get('/summary', protect, async (req, res) => {
+  try {
+    const match = { ...buildDateRange(req), ...buildBusinessMatch(req) };
+    const sales = await Sale.find(match);
+    const inventoryItems = await Ingredient.find({ isActive: true, ...buildBusinessMatch(req) });
+
+    const summary = sales.reduce(
+      (acc, sale) => {
+        acc.salesCount += 1;
+        acc.subtotal += Number(sale.subtotal || 0);
+        acc.discount += Number(sale.discount?.amount || 0);
+        acc.tax += Number(sale.tax || 0);
+        acc.total += Number(sale.total || 0);
+        return acc;
+      },
+      { salesCount: 0, subtotal: 0, discount: 0, tax: 0, total: 0 }
+    );
+
+    const lowStockCount = inventoryItems.filter((item) => Number(item.stock || 0) <= Number(item.minStock || 0)).length;
+
+    res.json({
+      success: true,
+      data: {
+        ...summary,
+        inventoryItems: inventoryItems.length,
+        lowStockCount,
       },
     });
   } catch (error) {
@@ -180,7 +220,7 @@ router.delete('/expenses/:id', protect, async (req, res) => {
 // Ventas por hora y día
 router.get('/sales/heatmap', protect, async (req, res) => {
   try {
-    const match = buildDateRange(req);
+    const match = { ...buildDateRange(req), ...buildBusinessMatch(req) };
     const rows = await Sale.aggregate([
       { $match: match },
       {
@@ -205,7 +245,7 @@ router.get('/sales/heatmap', protect, async (req, res) => {
 // Rentabilidad por producto
 router.get('/products/profitability', protect, async (req, res) => {
   try {
-    const match = buildDateRange(req);
+    const match = { ...buildDateRange(req), ...buildBusinessMatch(req) };
     const rows = await Sale.aggregate([
       { $match: match },
       { $unwind: '$items' },

@@ -30,3 +30,22 @@
 - Definir estrategia exacta de geolocalización y proveedor de mapas.
 - Definir pasarela de pagos principal por país/región.
 - Decidir si backend migra gradualmente a TypeScript o mantiene JavaScript con tipado por paquetes compartidos.
+
+## Fase 1.1 (OneHub Business Core)
+**Núcleo de negocio real, multi-negocio y sin mocks críticos**
+- autenticación real (`/api/v1/auth/login`, `/api/v1/auth/me`)
+- identidad de negocio (`businessId`, `type`, `enabledModules`)
+- POS con productos reales por API
+- inventario backend-first (modelo `InventoryItem`)
+- ventas reales con impacto en inventario
+- reportes conectados a backend
+- unificación de store y capa API en frontend
+
+### Entregables operativos
+1. Auth real + Business.
+2. POS real con productos API.
+3. Inventario + ventas reales.
+4. Base multi-negocio básica.
+
+### Criterio de salida
+Flujo completo validado: login real -> carga de negocio -> venta real -> ajuste de inventario -> reporte actualizado, todo ligado a `businessId`.

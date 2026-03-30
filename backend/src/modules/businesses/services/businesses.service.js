@@ -1,5 +1,6 @@
 const Business = require('../../../models/Business');
 const Product = require('../../../models/Product');
+const User = require('../../../models/User');
 
 const DEFAULT_BUSINESS_NAME = 'Mi negocio CafeTrack';
 
@@ -90,4 +91,15 @@ module.exports = {
   updateNetworkStatus,
   getConnectedBusinesses,
   getBusinessProducts,
+  async getBusinessById({ businessId }) {
+    if (!businessId) throw new Error('businessId inválido');
+    const business = await Business.findById(businessId);
+    if (!business) throw new Error('Negocio no encontrado');
+    return business;
+  },
+  async getBusinessUsers({ businessId }) {
+    if (!businessId) throw new Error('businessId inválido');
+    const users = await User.find({ businessId, isActive: true }).select('name email role status businessId');
+    return users;
+  },
 };

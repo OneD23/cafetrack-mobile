@@ -27,18 +27,58 @@ export interface AppUser extends BaseEntity {
 }
 
 export interface Business extends BaseEntity {
-  ownerUserId: string;
+  ownerUserId?: string;
   name: string;
+  slug?: string;
+  type?: 'cafe' | 'colmado' | 'ferreteria' | 'barberia' | 'salon' | 'nails_studio' | 'supermercado' | 'general';
+  status?: 'active' | 'inactive' | 'suspended';
+  phone?: string;
+  email?: string;
+  address?: string;
+  logoUrl?: string;
+  settings?: Record<string, unknown>;
+  enabledModules?: string[];
   description?: string;
-  isOpen: boolean;
+  isOpen?: boolean;
+  isActive?: boolean;
 }
 
 export interface Product extends BaseEntity {
   businessId: string;
   name: string;
+  description?: string;
   price: number;
-  currency: 'USD' | 'MXN' | 'COP' | 'ARS';
-  isAvailable: boolean;
+  category?: string;
+  sku?: string;
+  stock?: number;
+  minStock?: number;
+  businessType?: string;
+  currency?: 'USD' | 'MXN' | 'COP' | 'ARS';
+  isAvailable?: boolean;
+  isActive?: boolean;
+}
+
+export interface InventoryItem extends BaseEntity {
+  businessId: string;
+  name: string;
+  unit: string;
+  stock: number;
+  minStock: number;
+  costPerUnit: number;
+  type?: string;
+}
+
+export interface Sale extends BaseEntity {
+  businessId: string;
+  cashierUserId: string;
+  items: Array<{ productId: string; name?: string; quantity: number; price: number; total?: number }>;
+  subtotal: number;
+  discount: number;
+  tax: number;
+  total: number;
+  paymentMethod: 'cash' | 'card' | 'transfer' | 'mixed';
+  customerId?: string;
+  source?: 'local_pos' | 'future_marketplace';
 }
 
 export type OrderStatus =

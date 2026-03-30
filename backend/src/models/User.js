@@ -29,8 +29,19 @@ const userSchema = new mongoose.Schema({
   },
   role: {
     type: String,
-    enum: ['admin', 'manager', 'cashier'],
+    enum: ['owner', 'admin', 'manager', 'cashier'],
     default: 'cashier'
+  },
+  businessId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Business',
+    default: null,
+    index: true,
+  },
+  status: {
+    type: String,
+    enum: ['active', 'inactive', 'suspended'],
+    default: 'active',
   },
   isActive: {
     type: Boolean,

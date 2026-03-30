@@ -10,7 +10,11 @@ const router = express.Router();
 // @access  Private
 router.get('/', protect, async (req, res) => {
   try {
-    const products = await Product.find({ isActive: true })
+    const businessId = req.query.businessId || req.auth?.businessId || req.user?.businessId || null;
+    const query = { isActive: true };
+    if (businessId) query.businessId = businessId;
+
+    const products = await Product.find(query)
       .populate('recipeId')
       .sort({ category: 1, name: 1 });
 
@@ -35,31 +39,36 @@ router.post('/', protect, async (req, res) => {
   session.startTransaction();
 
   try {
-    const { name, price, category, icon, image, recipe, businessId } = req.body;
+    const { name, description, price, category, icon, image, recipe, businessId, stock, minStock, sku } = req.body;
+    const scopedBusinessId = businessId || req.auth?.businessId || req.user?.businessId || null;
 
     // Crear producto
     const product = await Product.create([{
       name,
+      description: description || '',
       price,
       category,
       icon: icon || '☕',
       image,
-      hasRecipe: true,
-      businessId: businessId || null
+      hasRecipe: Boolean(recipe),
+      stock: Number(stock || 0),
+      minStock: Number(minStock || 0),
+      sku: sku || '',
+      businessId: scopedBusinessId
     }], { session });
 
-    // Crear receta
-    const newRecipe = await Recipe.create([{
-      productId: product[0]._id,
-      items: recipe.items,
-      preparationTime: recipe.preparationTime || 2,
-      instructions: recipe.instructions,
-      image: recipe.image
-    }], { session });
+    if (recipe) {
+      const newRecipe = await Recipe.create([{
+        productId: product[0]._id,
+        items: recipe.items,
+        preparationTime: recipe.preparationTime || 2,
+        instructions: recipe.instructions,
+        image: recipe.image
+      }], { session });
 
-    // Actualizar producto con referencia a receta
-    product[0].recipeId = newRecipe[0]._id;
-    await product[0].save({ session });
+      product[0].recipeId = newRecipe[0]._id;
+      await product[0].save({ session });
+    }
 
     await session.commitTransaction();
 
