@@ -19,6 +19,7 @@ const ReportsScreen: React.FC = () => {
   const [tab, setTab] = useState<'stats' | 'invoices' | 'reports' | 'expenses' | 'fiscal'>('stats');
   const [sales, setSales] = useState<any[]>([]);
   const [expenses, setExpenses] = useState<any[]>([]);
+  const [summary, setSummary] = useState<any>(null);
   const [loading, setLoading] = useState(false);
   const [filterType, setFilterType] = useState<'day' | 'month' | 'year'>('day');
   const [filterValue, setFilterValue] = useState(new Date().toISOString().slice(0, 10));
@@ -73,6 +74,11 @@ const ReportsScreen: React.FC = () => {
         limit: '1000',
       });
       setSales(response?.data || []);
+      const summaryResponse = await api.getReportsSummary({
+        startDate: start.toISOString(),
+        endDate: end.toISOString(),
+      });
+      setSummary(summaryResponse?.data || null);
     } catch (error: any) {
       Alert.alert('Error', error?.message || 'No se pudieron cargar ventas');
     } finally {
@@ -99,6 +105,16 @@ const ReportsScreen: React.FC = () => {
   }, [filterType, filterValue]);
 
   const accountingSummary = useMemo(() => {
+    if (summary) {
+      return {
+        invoices: Number(summary.salesCount || 0),
+        subtotal: Number(summary.subtotal || 0),
+        tax: Number(summary.tax || 0),
+        discount: Number(summary.discount || 0),
+        total: Number(summary.total || 0),
+        byMethod: {} as Record<string, number>,
+      };
+    }
     return sales.reduce(
       (acc: any, sale: any) => {
         acc.invoices += 1;

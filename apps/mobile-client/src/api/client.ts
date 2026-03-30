@@ -1,6 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-const API_URL = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:5000/api';
+const API_URL = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:5000/api/v1';
 // Para producción: 'https://tu-api-render.com/api'
 
 const mapIds = (payload: any): any => {
@@ -105,11 +105,15 @@ class ApiClient {
   name: string;
   password: string;
 }) {
-  return this.request('/auth/bootstrap-admin', {
+  return this.request('/auth/bootstrap', {
     method: 'POST',
     body: JSON.stringify(payload),
   });
 }
+
+  async me() {
+    return this.request('/auth/me');
+  }
 
   async registerUser(payload: {
     username: string;
@@ -125,38 +129,39 @@ class ApiClient {
   }
 
   // Ingredients
-  async getIngredients() {
-    return this.request('/ingredients');
+  async getIngredients(params?: { businessId?: string }) {
+    const query = params?.businessId ? `?businessId=${encodeURIComponent(params.businessId)}` : '';
+    return this.request(`/inventory${query}`);
   }
 
   async createIngredient(ingredient: any) {
-    return this.request('/ingredients', {
+    return this.request('/inventory', {
       method: 'POST',
       body: JSON.stringify(ingredient),
     });
   }
 
   async restockIngredient(id: string, quantity: number, reason?: string) {
-    return this.request(`/ingredients/${id}/restock`, {
+    return this.request(`/inventory/${id}/restock`, {
       method: 'POST',
       body: JSON.stringify({ quantity, reason }),
     });
   }
   async deleteIngredient(id: string) {
-  return this.request(`/ingredients/${id}`, {
+  return this.request(`/inventory/${id}`, {
     method: 'DELETE',
   });
 }
 
 async adjustStock(id: string, newStock: number, reason: string) {
-  return this.request(`/ingredients/${id}/adjust`, {
+  return this.request(`/inventory/${id}/adjust`, {
     method: 'POST',
     body: JSON.stringify({ newStock, reason }),
   });
 }
 
 async deductIngredients(recipeId: string, quantity: number, saleId: string) {
-  return this.request('/ingredients/deduct', {
+  return this.request('/inventory/deduct', {
     method: 'POST',
     body: JSON.stringify({ recipeId, quantity, saleId }),
   });
@@ -164,11 +169,15 @@ async deductIngredients(recipeId: string, quantity: number, saleId: string) {
 
 
   async getConnectedBusinesses() {
-    return this.request('/v1/businesses/connected');
+    return this.request('/businesses/connected');
   }
 
   async getBusinessProducts(businessId: string) {
-    return this.request(`/v1/businesses/${businessId}/products`);
+    return this.request(`/businesses/${businessId}/products`);
+  }
+
+  async getBusiness(businessId: string) {
+    return this.request(`/businesses/${businessId}`);
   }
 
   async getPosts(params?: { category?: string; businessId?: string; includeInactive?: boolean }) {
@@ -177,11 +186,11 @@ async deductIngredients(recipeId: string, quantity: number, saleId: string) {
     if (params?.businessId) search.set('businessId', params.businessId);
     if (params?.includeInactive !== undefined) search.set('includeInactive', String(params.includeInactive));
     const suffix = search.toString() ? `?${search.toString()}` : '';
-    return this.request(`/v1/posts${suffix}`);
+    return this.request(`/posts${suffix}`);
   }
 
   async getPostsByCategory(category: string) {
-    return this.request(`/v1/posts/category/${encodeURIComponent(category)}`);
+    return this.request(`/posts/category/${encodeURIComponent(category)}`);
   }
 
   async createPost(payload: {
@@ -191,15 +200,16 @@ async deductIngredients(recipeId: string, quantity: number, saleId: string) {
     imageUrl?: string;
     tags?: string[];
   }) {
-    return this.request('/v1/posts', {
+    return this.request('/posts', {
       method: 'POST',
       body: JSON.stringify(payload),
     });
   }
 
   // Products
-  async getProducts() {
-    return this.request('/products');
+  async getProducts(params?: { businessId?: string }) {
+    const query = params?.businessId ? `?businessId=${encodeURIComponent(params.businessId)}` : '';
+    return this.request(`/products${query}`);
   }
 
   async createProduct(product: any) {
@@ -229,26 +239,26 @@ async deductIngredients(recipeId: string, quantity: number, saleId: string) {
     items: Array<{ productId: string; name: string; quantity: number; unitPrice: number }>;
     notes?: string;
   }) {
-    return this.request('/v1/orders', {
+    return this.request('/orders', {
       method: 'POST',
       body: JSON.stringify(payload),
     });
   }
 
   async getMyOrders(userId: string) {
-    return this.request(`/v1/orders/my-orders?userId=${encodeURIComponent(userId)}`);
+    return this.request(`/orders/my-orders?userId=${encodeURIComponent(userId)}`);
   }
 
   async getOrderById(orderId: string) {
-    return this.request(`/v1/orders/${orderId}`);
+    return this.request(`/orders/${orderId}`);
   }
 
   async getBusinessOrders(businessId: string) {
-    return this.request(`/v1/orders/business/${businessId}`);
+    return this.request(`/orders/business/${businessId}`);
   }
 
   async updateOrderStatus(orderId: string, status: 'pending' | 'accepted' | 'preparing' | 'ready' | 'cancelled') {
-    return this.request(`/v1/orders/${orderId}/status`, {
+    return this.request(`/orders/${orderId}/status`, {
       method: 'PATCH',
       body: JSON.stringify({ status }),
     });
@@ -360,6 +370,11 @@ async deductIngredients(recipeId: string, quantity: number, saleId: string) {
   async getReportKpis(params?: any) {
     const queryString = params ? `?${new URLSearchParams(params)}` : '';
     return this.request(`/reports/kpis${queryString}`);
+  }
+
+  async getReportsSummary(params?: any) {
+    const queryString = params ? `?${new URLSearchParams(params)}` : '';
+    return this.request(`/reports/summary${queryString}`);
   }
 
   async getSalesHeatmap(params?: any) {

@@ -77,6 +77,17 @@ const saleSchema = new mongoose.Schema({
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Customer',
   },
+  businessId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Business',
+    required: true,
+    index: true,
+  },
+  cashierUserId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User',
+    default: null,
+  },
   cashier: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User',
@@ -92,7 +103,12 @@ const saleSchema = new mongoose.Schema({
   offlineCreated: {
     type: Boolean,
     default: false
-  }
+  },
+  source: {
+    type: String,
+    enum: ['local_pos', 'future_marketplace'],
+    default: 'local_pos',
+  },
 }, {
   timestamps: true
 });

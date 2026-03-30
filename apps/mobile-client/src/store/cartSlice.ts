@@ -66,8 +66,9 @@ export const processSale = createAsyncThunk(
     },
     { getState, dispatch }
   ) => {
-    const state = getState() as { cart: CartState };
+    const state = getState() as { cart: CartState; auth: any };
     const { items, taxEnabled, taxRate } = state.cart;
+    const businessId = state.auth?.business?.id || state.auth?.user?.businessId || undefined;
 
     if (!items.length) {
       throw new Error('No hay productos en el carrito');
@@ -92,6 +93,8 @@ export const processSale = createAsyncThunk(
         quantity: item.quantity,
       })),
       createdAt: new Date().toISOString(),
+      businessId,
+      source: 'local_pos',
     };
 
     try {

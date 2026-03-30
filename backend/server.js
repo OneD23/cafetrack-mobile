@@ -103,11 +103,16 @@ app.get('/health', (req, res) => {
 
 // Rutas API
 app.use('/api/auth', authRoutes);
+app.use('/api/v1/auth', authRoutes);
 app.use('/api/ingredients', ingredientRoutes);
+app.use('/api/v1/inventory', ingredientRoutes);
 app.use('/api/products', productRoutes);
+app.use('/api/v1/products', productRoutes);
 app.use('/api/sales', saleRoutes);
+app.use('/api/v1/sales', saleRoutes);
 app.use('/api/customers', customerRoutes);
 app.use('/api/reports', reportRoutes);
+app.use('/api/v1/reports', reportRoutes);
 app.use('/api/notifications', notificationRoutes);
 
 

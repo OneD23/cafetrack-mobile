@@ -11,7 +11,11 @@ const router = express.Router();
 // @access  Private
 router.get('/', protect, async (req, res) => {
   try {
-    const ingredients = await Ingredient.find({ isActive: true })
+    const businessId = req.query.businessId || req.auth?.businessId || req.user?.businessId || null;
+    const query = { isActive: true };
+    if (businessId) query.businessId = businessId;
+
+    const ingredients = await Ingredient.find(query)
       .sort({ name: 1 });
 
     res.json({
@@ -55,8 +59,10 @@ router.get('/low-stock', protect, async (req, res) => {
 // @access  Private/Admin/Manager
 router.post('/', protect, async (req, res) => {
   try {
+    const businessId = req.body.businessId || req.auth?.businessId || req.user?.businessId || null;
     const ingredient = await Ingredient.create({
       ...req.body,
+      businessId,
       modifiedBy: req.user._id
     });
 

@@ -60,9 +60,29 @@ const listConnectedBusinesses = async (req, res, next) => {
   }
 };
 
+const getBusinessById = async (req, res, next) => {
+  try {
+    const payload = await businessesService.getBusinessById({ businessId: req.params.businessId });
+    return res.json({ success: true, data: payload });
+  } catch (error) {
+    return next(error);
+  }
+};
+
+const getBusinessUsers = async (req, res, next) => {
+  try {
+    const payload = await businessesService.getBusinessUsers({ businessId: req.params.businessId });
+    return res.json({ success: true, data: payload });
+  } catch (error) {
+    return next(error);
+  }
+};
+
 module.exports = {
   getNetworkStatus,
   updateNetworkStatus,
   listConnectedBusinesses,
   getBusinessProducts,
+  getBusinessById,
+  getBusinessUsers,
 };

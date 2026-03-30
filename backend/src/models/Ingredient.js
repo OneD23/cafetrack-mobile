@@ -4,8 +4,7 @@ const ingredientSchema = new mongoose.Schema({
   name: { 
     type: String, 
     required: [true, 'El nombre es obligatorio'],
-    trim: true,
-    unique: true
+    trim: true
   },
   unit: { 
     type: String, 
@@ -55,6 +54,16 @@ const ingredientSchema = new mongoose.Schema({
   modifiedBy: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User'
+  },
+  businessId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Business',
+    default: null,
+    index: true,
+  },
+  type: {
+    type: String,
+    default: 'inventory_item',
   }
 }, {
   timestamps: true,
@@ -76,5 +85,6 @@ ingredientSchema.pre('save', function(next) {
 // Índices para búsqueda
 ingredientSchema.index({ name: 'text' });
 ingredientSchema.index({ stock: 1, minStock: 1 }); // Para alertas de stock bajo
+ingredientSchema.index({ businessId: 1, name: 1 }, { unique: true, partialFilterExpression: { isActive: true } });
 
 module.exports = mongoose.model('Ingredient', ingredientSchema);

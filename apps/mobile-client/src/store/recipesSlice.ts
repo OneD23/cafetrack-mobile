@@ -1,8 +1,9 @@
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
 import { api } from '../api/client';
 
-export const fetchProducts = createAsyncThunk('recipes/fetchProducts', async () => {
-  const response = await api.getProducts();
+export const fetchProducts = createAsyncThunk('recipes/fetchProducts', async (_, { getState }: any) => {
+  const businessId = getState()?.auth?.business?.id || getState()?.auth?.user?.businessId;
+  const response = await api.getProducts({ businessId });
   return response.data;
 });
 

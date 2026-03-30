@@ -18,16 +18,18 @@ interface InventoryState {
 // Thunks para API
 export const fetchIngredients = createAsyncThunk(
   'inventory/fetchIngredients',
-  async () => {
-    const response = await api.getIngredients();
+  async (_, { getState }: any) => {
+    const businessId = getState()?.auth?.business?.id || getState()?.auth?.user?.businessId;
+    const response = await api.getIngredients({ businessId });
     return response.data;
   }
 );
 
 export const addIngredient = createAsyncThunk(
   'inventory/addIngredient',
-  async (ingredientData: any) => {
-    const response = await api.createIngredient(ingredientData);
+  async (ingredientData: any, { getState }: any) => {
+    const businessId = getState()?.auth?.business?.id || getState()?.auth?.user?.businessId;
+    const response = await api.createIngredient({ ...ingredientData, businessId });
     return response.data;
   }
 );
