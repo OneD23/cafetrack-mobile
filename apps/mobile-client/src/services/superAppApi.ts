@@ -48,10 +48,24 @@ export const superAppApi = {
       const response = await api.getConnectedBusinesses();
       const entries = Array.isArray(response?.data) ? response.data : [];
 
+      const categoryToBusinessType = (category: string) => {
+        switch (category) {
+          case 'barberia_salon':
+          case 'ferreteria':
+          case 'supermercado':
+          case 'colmado':
+          case 'cafeteria':
+            return category;
+          default:
+            return 'barberia_salon';
+        }
+      };
+
       return entries.map((business: any) => ({
         id: business.id,
         name: business.name,
         categoryId: business.category || 'cat-services',
+        businessType: categoryToBusinessType(business.category),
         description: business.description || 'Negocio activo en OneD Hub',
         rating: Number(business.rating || 4.5),
         etaMinutes: Number(business.etaMinutes || 35),

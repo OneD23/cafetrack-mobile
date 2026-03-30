@@ -88,6 +88,8 @@ export interface ServiceBooking {
   businessName: string;
   serviceId: string;
   serviceName: string;
+  employeeId?: string;
+  employeeName?: string;
   customerName: string;
   scheduledAt: string;
   status: 'pending' | 'confirmed' | 'in_progress' | 'completed' | 'cancelled';
