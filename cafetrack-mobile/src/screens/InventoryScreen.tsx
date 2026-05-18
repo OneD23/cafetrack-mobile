@@ -16,6 +16,7 @@ import { useSelector, useDispatch } from 'react-redux';
 import { Ionicons } from '@expo/vector-icons';
 import type { AppDispatch } from '../store';
 import { RecipeModal } from '../components/RecipeModal';
+import { api } from '../api/client';
 import {
   addIngredient,
   deleteIngredient,
@@ -35,6 +36,7 @@ export const InventoryScreen: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'ingredients' | 'products'>('ingredients');
   const [showRecipeModal, setShowRecipeModal] = useState(false);
   const [showIngredientModal, setShowIngredientModal] = useState(false);
+  const [showExpenseModal, setShowExpenseModal] = useState(false);
   const [editingProduct, setEditingProduct] = useState<any>(null);
   const [searchQuery, setSearchQuery] = useState('');
 
@@ -43,8 +45,38 @@ export const InventoryScreen: React.FC = () => {
   const [ingStock, setIngStock] = useState('');
   const [ingMinStock, setIngMinStock] = useState('');
   const [ingCost, setIngCost] = useState('');
+  const [expenseCategory, setExpenseCategory] = useState('Insumos');
+  const [expenseDescription, setExpenseDescription] = useState('');
+  const [expenseAmount, setExpenseAmount] = useState('');
 
   const units = ['g', 'ml', 'unidad', 'oz'];
+
+  const promptForValue = (
+    title: string,
+    message: string,
+    onConfirm: (value: string) => void
+  ) => {
+    if (Platform.OS === 'web' && typeof window !== 'undefined') {
+      const value = window.prompt(message, '');
+      if (value !== null) onConfirm(value);
+      return;
+    }
+
+    if (typeof (Alert as any).prompt === 'function') {
+      (Alert as any).prompt(
+        title,
+        message,
+        [
+          { text: 'Cancelar', style: 'cancel' },
+          { text: 'Aceptar', onPress: (value: string) => onConfirm(value || '') },
+        ],
+        'plain-text'
+      );
+      return;
+    }
+
+    Alert.alert('No disponible', 'Esta acción requiere entrada manual en iOS o web.');
+  };
 
   const handleAddIngredient = () => {
     if (!ingName || !ingStock || !ingMinStock || !ingCost) {
@@ -81,39 +113,68 @@ export const InventoryScreen: React.FC = () => {
     setShowIngredientModal(false);
   };
 
-  const handleRestock = (ingredient: any) => {
-    Alert.prompt(
-      'Reposición',
-      `Cantidad a añadir a ${ingredient.name}:`,
-      [
-        { text: 'Cancelar', style: 'cancel' },
-        {
-          text: 'Añadir',
-          onPress: (value) => {
-            const qty = parseFloat(value || '0');
-            if (qty > 0) {
-              dispatch(
-                restockIngredient({
-                  ingredientId: entityId(ingredient),
-                  quantity: qty,
-                  reason: 'Reposición manual',
-                }) as any
-              );
+  const handleRegisterExpense = async () => {
+    if (!expenseDescription.trim() || !expenseAmount.trim()) {
+      Alert.alert('Error', 'Completa descripción y monto del gasto');
+      return;
+    }
 
-              dispatch(
-                addJournalEntry({
-                  direction: 'in',
-                  category: 'inventory',
-                  description: `Reposición: ${ingredient.name}`,
-                  amount: qty * (ingredient.costPerUnit || 0),
-                }) as any
-              );
-            }
-          },
-        },
-      ],
-      'plain-text'
-    );
+    const amount = Number(expenseAmount);
+    if (!amount || amount <= 0) {
+      Alert.alert('Error', 'El monto debe ser mayor a 0');
+      return;
+    }
+
+    try {
+      await api.createExpense({
+        category: expenseCategory.trim() || 'Insumos',
+        description: expenseDescription.trim(),
+        amount,
+        paymentMethod: 'cash',
+        date: new Date().toISOString(),
+      });
+
+      dispatch(
+        addJournalEntry({
+          direction: 'out',
+          category: 'other',
+          description: `Gasto: ${expenseDescription.trim()}`,
+          amount,
+        }) as any
+      );
+
+      setExpenseCategory('Insumos');
+      setExpenseDescription('');
+      setExpenseAmount('');
+      setShowExpenseModal(false);
+      Alert.alert('Éxito', 'Gasto registrado correctamente');
+    } catch (error: any) {
+      Alert.alert('Error', error?.message || 'No se pudo registrar el gasto');
+    }
+  };
+
+  const handleRestock = (ingredient: any) => {
+    promptForValue('Reposición', `Cantidad a añadir a ${ingredient.name}:`, (value) => {
+      const qty = parseFloat(value || '0');
+      if (qty > 0) {
+        dispatch(
+          restockIngredient({
+            ingredientId: entityId(ingredient),
+            quantity: qty,
+            reason: 'Reposición manual',
+          }) as any
+        );
+
+        dispatch(
+          addJournalEntry({
+            direction: 'in',
+            category: 'inventory',
+            description: `Reposición: ${ingredient.name}`,
+            amount: qty * (ingredient.costPerUnit || 0),
+          }) as any
+        );
+      }
+    });
   };
 
   const handleDeleteProduct = (product: any) => {
@@ -199,7 +260,7 @@ export const InventoryScreen: React.FC = () => {
           <TouchableOpacity
             style={styles.actionBtn}
             onPress={() => {
-              Alert.prompt('Ajuste', 'Nuevo stock:', (value) => {
+              promptForValue('Ajuste', 'Nuevo stock:', (value) => {
                 const newStock = parseFloat(value || '0');
                 if (!isNaN(newStock)) {
                   const diff = newStock - Number(item.stock || 0);
@@ -397,6 +458,11 @@ export const InventoryScreen: React.FC = () => {
         </Text>
       </TouchableOpacity>
 
+      <TouchableOpacity style={styles.expenseQuickButton} onPress={() => setShowExpenseModal(true)}>
+        <Ionicons name="wallet-outline" size={20} color="#f5f1e8" />
+        <Text style={styles.expenseQuickButtonText}>Registrar gasto rápido (ej: hielo, vasos, fundas)</Text>
+      </TouchableOpacity>
+
       {activeTab === 'ingredients' ? (
         <FlatList
           data={filteredIngredients}
@@ -490,6 +556,51 @@ export const InventoryScreen: React.FC = () => {
           </View>
         </View>
       </Modal>
+
+      <Modal visible={showExpenseModal} transparent animationType="slide">
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>💸 Registrar gasto rápido</Text>
+
+            <Text style={styles.inputLabel}>Categoría</Text>
+            <TextInput
+              style={styles.modalInput}
+              value={expenseCategory}
+              onChangeText={setExpenseCategory}
+              placeholder="Ej: Insumos"
+              placeholderTextColor="#8b6f4e"
+            />
+
+            <Text style={styles.inputLabel}>Descripción</Text>
+            <TextInput
+              style={styles.modalInput}
+              value={expenseDescription}
+              onChangeText={setExpenseDescription}
+              placeholder="Ej: Compra de hielo"
+              placeholderTextColor="#8b6f4e"
+            />
+
+            <Text style={styles.inputLabel}>Monto ($)</Text>
+            <TextInput
+              style={styles.modalInput}
+              value={expenseAmount}
+              onChangeText={setExpenseAmount}
+              keyboardType="decimal-pad"
+              placeholder="0.00"
+              placeholderTextColor="#8b6f4e"
+            />
+
+            <View style={styles.modalButtons}>
+              <TouchableOpacity style={styles.cancelBtn} onPress={() => setShowExpenseModal(false)}>
+                <Text style={styles.cancelBtnText}>Cancelar</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.saveBtn} onPress={handleRegisterExpense}>
+                <Text style={styles.saveBtnText}>Guardar gasto</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 };
@@ -565,6 +676,24 @@ const styles = StyleSheet.create({
     color: '#1a0f0a',
     fontSize: 16,
     fontWeight: 'bold',
+  },
+  expenseQuickButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#3a2a20',
+    marginHorizontal: 15,
+    marginBottom: 10,
+    padding: 12,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#6b4a35',
+    gap: 8,
+  },
+  expenseQuickButtonText: {
+    color: '#f5f1e8',
+    fontSize: 13,
+    fontWeight: '600',
+    flex: 1,
   },
   list: {
     padding: 15,

@@ -4,6 +4,7 @@ import authReducer from './authSlice';
 import cartReducer from './cartSlice';
 import inventoryReducer from './inventorySlice';
 import recipesReducer from './recipesSlice';
+import offlineReducer from './offlineSlice';
 
 export const store = configureStore({
   reducer: {
@@ -11,6 +12,7 @@ export const store = configureStore({
     cart: cartReducer,
     inventory: inventoryReducer,
     recipes: recipesReducer,
+    offline: offlineReducer,
   },
   middleware: (getDefaultMiddleware: any) =>
     getDefaultMiddleware({

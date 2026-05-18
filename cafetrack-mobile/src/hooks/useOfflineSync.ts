@@ -1,7 +1,7 @@
 import { useCallback } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { api } from '../api/client';
-import { clearQueue, getQueue } from '../store/offlineSlice';
+import { clearQueuePersisted, getQueue, removeFromQueuePersisted } from '../store/offlineSlice';
 
 export const useOfflineSync = () => {
   const dispatch = useDispatch();
@@ -24,6 +24,7 @@ export const useOfflineSync = () => {
         if (operation.type === 'sale') {
           await api.createSale(operation.data);
           synced += 1;
+          await dispatch(removeFromQueuePersisted(operation.id) as any);
           continue;
         }
 
@@ -31,12 +32,14 @@ export const useOfflineSync = () => {
           const { ingredientId, newStock, reason } = operation.data;
           await api.adjustStock(ingredientId, newStock, reason || 'Sync offline');
           synced += 1;
+          await dispatch(removeFromQueuePersisted(operation.id) as any);
           continue;
         }
 
         if (operation.type === 'delete' && operation.data?.ingredientId) {
           await api.deleteIngredient(operation.data.ingredientId);
           synced += 1;
+          await dispatch(removeFromQueuePersisted(operation.id) as any);
           continue;
         }
 
@@ -47,7 +50,7 @@ export const useOfflineSync = () => {
     }
 
     if (failed.length === 0) {
-      dispatch(clearQueue());
+      dispatch(clearQueuePersisted() as any);
     }
 
     return {
@@ -58,7 +61,7 @@ export const useOfflineSync = () => {
   }, [dispatch, queue]);
 
   const clearOfflineQueue = useCallback(() => {
-    dispatch(clearQueue());
+    dispatch(clearQueuePersisted() as any);
   }, [dispatch]);
 
   return {

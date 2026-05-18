@@ -1,5 +1,12 @@
 const mongoose = require('mongoose');
 
+const generateSaleId = () => {
+  const date = new Date();
+  const prefix = `SALE-${date.getFullYear()}${String(date.getMonth() + 1).padStart(2, '0')}${String(date.getDate()).padStart(2, '0')}`;
+  const suffix = `${Date.now().toString().slice(-6)}${Math.floor(Math.random() * 90 + 10)}`;
+  return `${prefix}-${suffix}`;
+};
+
 const saleItemSchema = new mongoose.Schema({
   product: {
     type: mongoose.Schema.Types.ObjectId,
@@ -29,7 +36,14 @@ const saleSchema = new mongoose.Schema({
   saleId: {
     type: String,
     unique: true,
-    required: true
+    required: true,
+    default: generateSaleId
+  },
+  operationId: {
+    type: String,
+    unique: true,
+    sparse: true,
+    index: true,
   },
   items: [saleItemSchema],
   subtotal: {
@@ -58,6 +72,10 @@ const saleSchema = new mongoose.Schema({
     name: String,
     email: String,
     phone: String
+  },
+  customerId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Customer',
   },
   cashier: {
     type: mongoose.Schema.Types.ObjectId,

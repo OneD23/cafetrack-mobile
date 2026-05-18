@@ -36,12 +36,25 @@ export const loginUser = createAsyncThunk(
       }
 
       await AsyncStorage.setItem('token', token);
+      await AsyncStorage.setItem('user', JSON.stringify(user));
       return { user, token };
     } catch (error: any) {
       return rejectWithValue(error?.message || 'Credenciales inválidas');
     }
   }
 );
+
+export const restoreSession = createAsyncThunk('auth/restoreSession', async () => {
+  const token = await AsyncStorage.getItem('token');
+  const userRaw = await AsyncStorage.getItem('user');
+  const user = userRaw ? JSON.parse(userRaw) : null;
+
+  if (!token || !user) {
+    return { user: null, token: null };
+  }
+
+  return { user, token };
+});
 
 const authSlice = createSlice({
   name: 'auth',
@@ -51,6 +64,7 @@ const authSlice = createSlice({
       state.user = null;
       state.token = null;
       AsyncStorage.removeItem('token');
+      AsyncStorage.removeItem('user');
     },
     setUser: (state, action: PayloadAction<User>) => {
       state.user = action.payload;
@@ -70,6 +84,17 @@ const authSlice = createSlice({
       .addCase(loginUser.rejected, (state, action) => {
         state.isLoading = false;
         state.error = (action.payload as string) || action.error.message || 'Error de login';
+      })
+      .addCase(restoreSession.pending, (state) => {
+        state.isLoading = true;
+      })
+      .addCase(restoreSession.fulfilled, (state, action) => {
+        state.isLoading = false;
+        state.user = action.payload.user;
+        state.token = action.payload.token;
+      })
+      .addCase(restoreSession.rejected, (state) => {
+        state.isLoading = false;
       });
   },
 });

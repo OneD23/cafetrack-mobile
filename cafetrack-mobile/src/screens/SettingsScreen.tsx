@@ -1,12 +1,17 @@
 import React, { useState } from "react";
 import { View, Text, StyleSheet, TouchableOpacity, SafeAreaView, Modal, TextInput, Alert } from "react-native";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useSelector, useDispatch } from "react-redux";
 import { logout } from "../store/authSlice";
+import { setTaxConfig } from "../store/cartSlice";
 import { api } from "../api/client";
+
+const TAX_SETTINGS_KEY = "settings:tax_enabled";
 
 const SettingsScreen: React.FC = () => {
   const dispatch = useDispatch();
   const { user } = useSelector((state: any) => state.auth);
+  const { taxEnabled, taxRate } = useSelector((state: any) => state.cart);
   const [showUsersModal, setShowUsersModal] = useState(false);
   const [mode, setMode] = useState<"bootstrap" | "register">("register");
   const [form, setForm] = useState({
@@ -17,6 +22,17 @@ const SettingsScreen: React.FC = () => {
     role: "cashier" as "admin" | "manager" | "cashier",
   });
   const [isSaving, setIsSaving] = useState(false);
+
+  const toggleTaxes = async () => {
+    try {
+      const next = !taxEnabled;
+      dispatch(setTaxConfig({ enabled: next, rate: taxRate || 0.16 }));
+      await AsyncStorage.setItem(TAX_SETTINGS_KEY, JSON.stringify({ enabled: next, rate: taxRate || 0.16 }));
+      Alert.alert("Impuestos", next ? "Impuestos activados" : "Impuestos desactivados");
+    } catch (error: any) {
+      Alert.alert("Error", error?.message || "No se pudo actualizar la configuración de impuestos");
+    }
+  };
 
   const handleCreateUser = async () => {
     if (!form.username || !form.email || !form.name || !form.password) {
@@ -82,6 +98,18 @@ const SettingsScreen: React.FC = () => {
         }}
       >
         <Text style={styles.usersButtonText}>Gestión de Usuarios</Text>
+      </TouchableOpacity>
+
+      <TouchableOpacity
+        style={[styles.taxButton, taxEnabled ? styles.taxButtonOn : styles.taxButtonOff]}
+        onPress={toggleTaxes}
+      >
+        <Text style={styles.taxButtonText}>
+          {taxEnabled ? "Desactivar impuestos" : "Activar impuestos"}
+        </Text>
+        <Text style={styles.taxButtonSub}>
+          Estado actual: {taxEnabled ? "ACTIVO" : "INACTIVO"} ({Math.round((taxRate || 0.16) * 100)}%)
+        </Text>
       </TouchableOpacity>
 
       <View style={styles.info}>
@@ -222,6 +250,31 @@ const styles = StyleSheet.create({
   usersButtonText: {
     color: "#d4a574",
     fontWeight: "bold",
+  },
+  taxButton: {
+    marginHorizontal: 15,
+    marginTop: 10,
+    padding: 16,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: "#4a3428",
+  },
+  taxButtonOn: {
+    backgroundColor: "#1f6f43",
+  },
+  taxButtonOff: {
+    backgroundColor: "#5b2c2c",
+  },
+  taxButtonText: {
+    color: "#fff",
+    fontWeight: "bold",
+    textAlign: "center",
+  },
+  taxButtonSub: {
+    color: "#f5f1e8",
+    fontSize: 12,
+    textAlign: "center",
+    marginTop: 4,
   },
   info: {
     alignItems: "center",

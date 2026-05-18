@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Modal, TextInput } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { api } from '../api/client';
 
 interface PaymentModalProps {
   visible: boolean;
@@ -19,13 +20,40 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
 }) => {
   const [method, setMethod] = useState<'cash' | 'card' | 'transfer'>('cash');
   const [discount, setDiscount] = useState('');
+  const [customerId, setCustomerId] = useState('');
   const [customerName, setCustomerName] = useState('');
+  const [loadingCustomer, setLoadingCustomer] = useState(false);
+  const [customerMeta, setCustomerMeta] = useState<{ points: number; visits: number } | null>(null);
+
+  const lookupCustomerById = async () => {
+    if (!customerId.trim()) return;
+    try {
+      setLoadingCustomer(true);
+      const response = await api.getCustomers(customerId.trim());
+      const found = (response?.data || []).find(
+        (c: any) => String(c.customerId).toLowerCase() === customerId.trim().toLowerCase()
+      );
+      if (found) {
+        setCustomerName(found.name || '');
+        setCustomerMeta({
+          points: Number(found.loyaltyPoints || 0),
+          visits: Number(found.visits || 0),
+        });
+      } else {
+        setCustomerMeta(null);
+      }
+    } catch {
+      // Sin internet o token inválido: evitamos romper la UI.
+    } finally {
+      setLoadingCustomer(false);
+    }
+  };
 
   const handleConfirm = () => {
     onConfirm({
       method,
       discount: discount ? parseFloat(discount) : 0,
-      customer: customerName ? { name: customerName } : null,
+      customer: customerName || customerId ? { id: customerId || undefined, name: customerName || undefined } : null,
     });
   };
 
@@ -69,6 +97,23 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
             value={discount}
             onChangeText={setDiscount}
           />
+
+          <Text style={styles.sectionTitle}>ID cliente (opcional)</Text>
+          <TextInput
+            style={styles.input}
+            placeholder="Ej: CUST-20260327-1234"
+            placeholderTextColor="#8b6f4e"
+            value={customerId}
+            onChangeText={setCustomerId}
+            onSubmitEditing={lookupCustomerById}
+          />
+          {loadingCustomer ? <Text style={styles.helperText}>Buscando cliente...</Text> : null}
+          {!loadingCustomer && customerName ? (
+            <Text style={styles.helperText}>
+              Cliente detectado: {customerName}
+              {customerMeta ? ` | ⭐ ${customerMeta.points} pts | Visitas ${customerMeta.visits}` : ''}
+            </Text>
+          ) : null}
 
           <Text style={styles.sectionTitle}>Cliente (opcional)</Text>
           <TextInput
@@ -180,6 +225,12 @@ const styles = StyleSheet.create({
     fontSize: 16,
     borderWidth: 1,
     borderColor: '#4a3428',
+  },
+  helperText: {
+    color: '#8b6f4e',
+    fontSize: 12,
+    marginTop: 4,
+    marginBottom: 2,
   },
   buttons: {
     flexDirection: 'row',

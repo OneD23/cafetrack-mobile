@@ -4,9 +4,20 @@ const Product = require('../models/Product');
 const Recipe = require('../models/Recipe');
 const Ingredient = require('../models/Ingredient');
 const InventoryMovement = require('../models/InventoryMovement');
+const Customer = require('../models/Customer');
 const { protect } = require('../middleware/auth');
 
 const router = express.Router();
+
+const generateSaleId = async (session) => {
+  const date = new Date();
+  const prefix = `SALE-${date.getFullYear()}${String(date.getMonth() + 1).padStart(2, '0')}${String(date.getDate()).padStart(2, '0')}`;
+  const count = await Sale.countDocuments({
+    saleId: new RegExp(`^${prefix}`)
+  }).session(session);
+
+  return `${prefix}-${String(count + 1).padStart(4, '0')}`;
+};
 
 // @route   POST /api/sales
 // @desc    Crear venta y descontar inventario
@@ -16,11 +27,83 @@ router.post('/', protect, async (req, res) => {
   session.startTransaction();
 
   try {
-    const { items, paymentMethod, customer, discount, deviceId, syncId } = req.body;
+    const {
+      items,
+      paymentMethod,
+      customer,
+      customerId,
+      discount,
+      applyTax = true,
+      taxRate = 0.16,
+      deviceId,
+      syncId,
+      operationId
+    } = req.body;
+
+    if (!Array.isArray(items) || items.length === 0) {
+      throw new Error('La venta debe incluir al menos un item');
+    }
+
+    const validMethods = ['cash', 'card', 'transfer', 'mixed'];
+    if (!validMethods.includes(String(paymentMethod || ''))) {
+      throw new Error('Método de pago inválido');
+    }
+
+    if (operationId) {
+      const existing = await Sale.findOne({ operationId }).session(session);
+      if (existing) {
+        await session.commitTransaction();
+        return res.status(200).json({
+          success: true,
+          data: existing,
+          duplicate: true,
+        });
+      }
+    }
+
+    const parsedDiscount = {
+      type: discount?.type || 'none',
+      value: Number(discount?.value || 0)
+    };
+    if (parsedDiscount.value < 0) {
+      throw new Error('El descuento no puede ser negativo');
+    }
+    if (!['none', 'fixed', 'percentage'].includes(parsedDiscount.type)) {
+      throw new Error('Tipo de descuento inválido');
+    }
+
+    let customerSnapshot = customer;
+    let resolvedCustomerId = null;
+    if (customerId) {
+      const customerAsText = String(customerId).trim();
+      const isMongoId = /^[a-fA-F0-9]{24}$/.test(customerAsText);
+      const customerQuery = isMongoId
+        ? { $or: [{ _id: customerId }, { customerId: String(customerId) }] }
+        : { customerId: customerAsText };
+
+      const foundCustomer = await Customer.findOne(customerQuery).session(session);
+      if (!foundCustomer) {
+        throw new Error('Cliente no encontrado');
+      }
+
+      resolvedCustomerId = foundCustomer._id;
+      customerSnapshot = {
+        name: foundCustomer.name,
+        email: foundCustomer.email,
+        phone: foundCustomer.phone,
+      };
+    }
 
     // Validar stock de ingredientes para cada item
     for (const item of items) {
+      if (!item?.productId || Number(item?.quantity || 0) <= 0) {
+        throw new Error('Item de venta inválido');
+      }
+
       const product = await Product.findById(item.productId).session(session);
+      if (!product) {
+        throw new Error('Producto no encontrado en la venta');
+      }
       
       if (!product || !product.hasRecipe) continue;
 
@@ -100,33 +183,57 @@ router.post('/', protect, async (req, res) => {
 
     // Aplicar descuento
     let discountAmount = 0;
-    if (discount && discount.type !== 'none') {
-      discountAmount = discount.type === 'percentage' 
-        ? subtotal * (discount.value / 100)
-        : Math.min(discount.value, subtotal);
+    if (parsedDiscount.type !== 'none') {
+      discountAmount = parsedDiscount.type === 'percentage' 
+        ? subtotal * (parsedDiscount.value / 100)
+        : Math.min(parsedDiscount.value, subtotal);
     }
 
-    const tax = (subtotal - discountAmount) * 0.16;
+    const safeTaxRate = Math.max(0, Number(taxRate || 0));
+    const effectiveTaxRate = applyTax === false ? 0 : safeTaxRate;
+    const tax = (subtotal - discountAmount) * effectiveTaxRate;
     const total = subtotal - discountAmount + tax;
+    const saleId = await generateSaleId(session);
 
     // Crear venta
     const sale = await Sale.create([{
+      saleId,
+      operationId: operationId || undefined,
       items: saleItems,
       subtotal,
       discount: {
-        type: discount?.type || 'none',
-        value: discount?.value || 0,
+        type: parsedDiscount.type,
+        value: parsedDiscount.value,
         amount: discountAmount
       },
       tax,
       total,
       paymentMethod,
-      customer,
+      customer: customerSnapshot,
+      customerId: resolvedCustomerId,
       cashier: req.user._id,
       syncId,
       deviceId,
       offlineCreated: !!deviceId
     }], { session });
+
+    if (resolvedCustomerId) {
+      const earnedPoints = Math.max(1, Math.floor(total / 50));
+      await Customer.findByIdAndUpdate(
+        resolvedCustomerId,
+        {
+          $inc: {
+            loyaltyPoints: earnedPoints,
+            totalSpent: total,
+            visits: 1,
+          },
+          $set: {
+            lastPurchaseAt: new Date(),
+          },
+        },
+        { session }
+      );
+    }
 
     await session.commitTransaction();
 
@@ -179,6 +286,7 @@ router.get('/', protect, async (req, res) => {
     const sales = await Sale.find(query)
       .populate('items.product', 'name icon')
       .populate('cashier', 'name')
+      .populate('customerId', 'customerId name')
       .sort({ createdAt: -1 })
       .limit(limit * 1)
       .skip((page - 1) * limit);
